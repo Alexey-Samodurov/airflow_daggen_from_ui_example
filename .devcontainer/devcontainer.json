@@ -1,0 +1,26 @@
+{
+  "name": "Airflow devcontainer",
+  "dockerComposeFile": "docker-compose.yaml",
+  "service": "airflow-webserver",
+  "runServices": [
+    "postgres",
+    "redis",
+    "airflow-webserver",
+    "airflow-scheduler",
+    "airflow-worker",
+    "airflow-triggerer"
+  ],
+  "shutdownAction": "stopCompose",
+  "workspaceFolder": "/workspace",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "ms-azuretools.vscode-docker"
+      ],
+      "settings": {
+        "python.pythonPath": "/home/airflow/.local/bin/python"
+      }
+    }
+  }
+}
