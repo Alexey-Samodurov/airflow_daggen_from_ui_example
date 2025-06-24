@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime
 
 
 class HelloWorldGenerator:
@@ -33,11 +33,11 @@ from airflow.operators.python import PythonOperator
 
 
 # Определяем функцию для выполнения
-def say_hello():
+def say_hello(date: str):
     """Простая функция Hello World"""
     print("Hello World from DAG Generator!")
     print(f"DAG ID: {dag_id}")
-    print("Execution Date: {{{{ ds }}}}")
+    print("Execution Date: {date}")
     return "Hello World task completed successfully!"
 
 
@@ -53,7 +53,7 @@ default_args = {{
 }}
 
 # Создание DAG'а
-dag = DAG(
+with DAG(
     dag_id='{dag_id}',
     default_args=default_args,
     description='{description}',
@@ -61,16 +61,16 @@ dag = DAG(
     start_date=datetime(2024, 1, 1),
     catchup=False,
     tags=['generated', 'hello-world'],
-)
+) as dag:
 
-# Определяем задачу
-hello_world_task = PythonOperator(
-    task_id='hello_world_task',
-    python_callable=say_hello,
-    dag=dag,
-)
+    # Определяем задачу
+    PythonOperator(
+        task_id='hello_world_task',
+        python_callable=say_hello,
+        op_args='{{{{ ds }}}}',
+    )
 
-# Задача выполняется одна, поэтому зависимости не нужны
+    # Задача выполняется одна, поэтому зависимости не нужны
 '''
 
         return dag_code
