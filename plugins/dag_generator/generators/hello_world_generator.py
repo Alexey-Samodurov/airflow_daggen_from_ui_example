@@ -37,7 +37,7 @@ def say_hello(date: str):
     """Простая функция Hello World"""
     print("Hello World from DAG Generator!")
     print(f"DAG ID: {dag_id}")
-    print("Execution Date: {date}")
+    print("Execution Date: {{date}}")
     return "Hello World task completed successfully!"
 
 
@@ -67,7 +67,7 @@ with DAG(
     PythonOperator(
         task_id='hello_world_task',
         python_callable=say_hello,
-        op_args='{{{{ ds }}}}',
+        op_args=['{{{{ ds }}}}'],
     )
 
     # Задача выполняется одна, поэтому зависимости не нужны
