@@ -8,7 +8,7 @@ setup(
     include_package_data=True,
     entry_points={
         "airflow.plugins": [
-            "dag_generator = plugins.dag_generator.plugin:DagGeneratorPlugin"
+            "dag_generator = airflow_dag_generator.plugin:DagGeneratorPlugin"
         ]
     },
 )
