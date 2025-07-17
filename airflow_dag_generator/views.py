@@ -1,26 +1,19 @@
 import os
-import sys
 import logging
-
-# Добавляем текущую папку в путь для импортов
-current_dir = os.path.dirname(os.path.abspath(__file__))
-if current_dir not in sys.path:
-    sys.path.insert(0, current_dir)
-
 from airflow.configuration import conf
 from flask import Blueprint, request, jsonify, render_template, redirect, session
 from flask import current_app
 
-# Теперь можем импортировать без проблем
-from generators.hello_world_generator import HelloWorldGenerator
-from utils.validators import validate_dag_syntax
+# Используем относительные импорты
+from .generators import get_generator
+from .utils.validators import validate_dag_syntax
 
 # Настраиваем логирование
 logger = logging.getLogger(__name__)
 
-# Создаем Blueprint
+# Создаем Blueprint БЕЗ точек в имени
 dag_generator_bp = Blueprint(
-    "dag_generator_plugin", 
+    "dag_generator",  # Убираем точки!
     __name__,
     template_folder="templates",
     static_folder="static", 
@@ -179,7 +172,7 @@ def generate_dag():
                 "message": "DAG ID should contain only letters, numbers, hyphens and underscores"
             }), 400
 
-        # Выбираем генератор
+        # Используем функцию get_generator из того же модуля
         generator = get_generator(form_data['template_type'])
         if not generator:
             logger.error(f"Неизвестный тип шаблона: {form_data['template_type']}")
@@ -267,6 +260,9 @@ def preview_dag(dag_id):
 
 def get_generator(template_type):
     """Получаем генератор по типу шаблона"""
+    # Импортируем локально чтобы избежать циклических импортов
+    from .generators.hello_world_generator import HelloWorldGenerator
+    
     generators = {
         'hello_world': HelloWorldGenerator(),
     }

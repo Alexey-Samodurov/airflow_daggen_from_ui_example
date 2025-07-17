@@ -8,6 +8,15 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /workspace
 
-#COPY ../requirements.txt requirements.txt
-#
-#RUN pip3 install -qr requirements.txt
+# Копируем файлы установки
+COPY ../setup.py .
+COPY ../pyproject.toml .
+COPY ../README.md .
+
+# Копируем исходный код
+COPY ../airflow_dag_generator ./airflow_dag_generator
+
+# Устанавливаем библиотеку
+RUN pip3 install .
+
+USER airflow

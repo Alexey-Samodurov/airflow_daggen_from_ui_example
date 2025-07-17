@@ -1,0 +1,63 @@
+[tool.poetry]
+name = "airflow-dag-generator"
+version = "0.1.0"
+description = "Airflow plugin for generating DAGs through web interface"
+authors = ["Aleksei Samodurov <damestos988@gmail.com>"]
+license = "MIT"
+readme = "README.md"
+homepage = "https://github.com/yourusername/airflow-dag-generator"
+repository = "https://github.com/yourusername/airflow-dag-generator"
+documentation = "https://github.com/yourusername/airflow-dag-generator"
+keywords = ["airflow", "dag", "generator", "plugin"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+# Указываем правильный пакет
+packages = [{include = "airflow_dag_generator"}]
+
+[tool.poetry.dependencies]
+python = ">=3.10,<3.13"
+apache-airflow = "^2.10.2"
+flask = "^2.0.0"
+wtforms = "^3.0.0"
+jinja2 = "^3.0.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.0.0"
+pytest-cov = "^4.0.0"
+black = "^23.0.0"
+flake8 = "^6.0.0"
+mypy = "^1.0.0"
+pre-commit = "^3.0.0"
+
+[tool.poetry.plugins."airflow.plugins"]
+dag_generator = "airflow_dag_generator.plugin:DagGeneratorPlugin"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.black]
+line-length = 88
+target-version = ['py311']
+include = '\.pyi?$'
+extend-ignore = ['E203', 'W503']
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
