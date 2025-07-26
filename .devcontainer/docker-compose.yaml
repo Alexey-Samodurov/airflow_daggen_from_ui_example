@@ -20,6 +20,7 @@ x-airflow-common:
     AIRFLOW__SCHEDULER__FILE_PARSING_SORT_MODE: modified_time
     AIRFLOW__CORE__FERNET_KEY: YWJjZGVmZ2hpams_bG1ub3BxcnN0dXZ3eHl6MTIzNDU2Nzg5MA==
     AIRFLOW__WEBSERVER__SECRET_KEY: your_super_secret_key_change_in_production_please
+    AIRFLOW__WEBSERVER__ENABLE_CSRF: 'true'
     _PIP_ADDITIONAL_REQUIREMENTS: ${_PIP_ADDITIONAL_REQUIREMENTS:-}
     PYTHONPATH: /opt/airflow/dags
   volumes:

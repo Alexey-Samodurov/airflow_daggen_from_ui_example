@@ -1,0 +1,72 @@
+{% extends "dag_generator/base.html" %}
+
+{% block title %}Генерация DAG{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-8 mx-auto">
+        <div class="card shadow">
+            <div class="card-header bg-primary text-white">
+                <h4 class="mb-0">
+                    <i class="fas fa-magic"></i>
+                    Генератор DAG'ов
+                </h4>
+            </div>
+
+            <div class="card-body">
+                <!-- Выбор типа генератора -->
+                <div class="mb-4">
+                    <label for="generator-select" class="form-label fw-bold">
+                        <i class="fas fa-layer-group"></i>
+                        Тип генератора
+                    </label>
+                    <select id="generator-select" class="form-select form-select-lg">
+                        <option value="">Выберите тип генератора...</option>
+                    </select>
+                    <div class="form-text">
+                        Выберите подходящий шаблон для генерации DAG
+                    </div>
+                </div>
+
+                <!-- Загрузчик -->
+                <div id="loading-spinner" class="text-center d-none">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Загрузка...</span>
+                    </div>
+                    <p class="mt-2 text-muted">Загрузка конфигурации генератора...</p>
+                </div>
+
+                <!-- Контейнер для динамической формы -->
+                <div id="dynamic-form-container">
+                    <div class="text-center text-muted py-5">
+                        <i class="fas fa-arrow-up fa-3x mb-3 opacity-50"></i>
+                        <h5>Выберите тип генератора</h5>
+                        <p>Для настройки параметров DAG выберите подходящий генератор из списка выше</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Результат генерации -->
+        <div id="result-container" class="mt-4 d-none">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-code"></i>
+                        Результат генерации
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <span class="badge bg-success">DAG успешно сгенерирован</span>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="copyToClipboard('#generated-code')">
+                            <i class="fas fa-copy"></i> Копировать
+                        </button>
+                    </div>
+                    <pre><code id="generated-code" class="language-python"></code></pre>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

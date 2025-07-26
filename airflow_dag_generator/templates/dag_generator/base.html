@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token }}">
+    <title>{% block title %}DAG Generator{% endblock %}</title>
+
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <!-- Custom CSS -->
+    <link href="{{ url_for('dag_generator.static', filename='css/dag-generator.css') }}" rel="stylesheet">
+
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container">
+            <a class="navbar-brand" href="{{ url_for('dag_generator.index') }}">
+                <i class="fas fa-cogs"></i>
+                DAG Generator
+            </a>
+
+            <div class="navbar-nav ms-auto">
+                <a class="nav-link" href="{{ url_for('dag_generator.index') }}">
+                    <i class="fas fa-home"></i> Главная
+                </a>
+                <a class="nav-link" href="{{ url_for('dag_generator.reload_generators') }}">
+                    <i class="fas fa-sync"></i> Перезагрузить
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="container-fluid py-4">
+        <!-- Alert Messages -->
+        <div id="alert-container"></div>
+
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-light mt-5 py-3">
+        <div class="container text-center text-muted">
+            <small>Airflow DAG Generator Plugin</small>
+        </div>
+    </footer>
+
+    <!-- Инициализация глобальных данных -->
+    <script>
+        // Инициализируем INITIAL_DATA сразу
+        window.INITIAL_DATA = {
+            csrf_token: "{{ csrf_token }}",
+            templates: {{ templates|tojson if templates else {}|tojson }},
+            schedules: {{ schedules|tojson if schedules else []|tojson }}
+        };
+        console.log('INITIAL_DATA initialized:', window.INITIAL_DATA);
+    </script>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- Custom JS -->
+    <script src="{{ url_for('dag_generator.static', filename='js/utils.js') }}"></script>
+    <script src="{{ url_for('dag_generator.static', filename='js/api-client.js') }}"></script>
+    <script src="{{ url_for('dag_generator.static', filename='js/dynamic-form-builder.js') }}"></script>
+    <script src="{{ url_for('dag_generator.static', filename='js/main.js') }}"></script>
+
+    {% block extra_js %}{% endblock %}
+</body>
+</html>
