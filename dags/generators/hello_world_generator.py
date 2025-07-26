@@ -3,7 +3,7 @@
 """
 from typing import Dict, Any, List
 from datetime import datetime
-from .base_generator import BaseGenerator
+from airflow_dag_generator.generators.base_generator import BaseGenerator
 
 
 class HelloWorldGenerator(BaseGenerator):

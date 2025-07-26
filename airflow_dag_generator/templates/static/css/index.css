@@ -1,0 +1,82 @@
+/* Стили для главной страницы генератора DAG'ов */
+
+.bg-gradient-primary {
+    background: linear-gradient(135deg, #007bff, #0056b3);
+}
+
+.generator-selection {
+    position: relative;
+}
+
+.generator-info {
+    animation: slideInUp 0.3s ease-out;
+}
+
+.empty-state {
+    transition: all 0.3s ease;
+}
+
+.info-card {
+    border-left: 4px solid #007bff;
+}
+
+/* Контейнер для уведомлений */
+#notifications-container {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 9999;
+    max-width: 400px;
+}
+
+#notifications-container .alert {
+    margin-bottom: 10px;
+    animation: slideInRight 0.3s ease-out;
+}
+
+/* Анимации */
+@keyframes slideInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes slideInRight {
+    from {
+        opacity: 0;
+        transform: translateX(100%);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+/* Состояния кнопок */
+.btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.btn-loading .fas {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Адаптивность */
+@media (max-width: 768px) {
+    #notifications-container {
+        left: 10px;
+        right: 10px;
+        max-width: none;
+    }
+}

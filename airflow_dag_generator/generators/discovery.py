@@ -1,5 +1,5 @@
 """
-Система автообнаружения генераторов с hot-reload
+Система автообнаружения генераторов с ручной перезагрузкой
 """
 import importlib.util
 import inspect
@@ -7,103 +7,23 @@ import logging
 import os
 import sys
 from pathlib import Path
-from threading import RLock, Timer
-from typing import List, Dict, Set
+from threading import RLock
+from typing import List, Dict
 
 from airflow.configuration import conf
 
 from .base_generator import BaseGenerator
 from .registry import get_registry
 
-# Опциональный импорт watchdog
-try:
-    from watchdog.observers import Observer
-    from watchdog.events import FileSystemEventHandler
-
-    HAS_WATCHDOG = True
-except ImportError:
-    HAS_WATCHDOG = False
-    Observer = None
-    FileSystemEventHandler = None
-
 logger = logging.getLogger(__name__)
 
 
-class GeneratorFileHandler(FileSystemEventHandler):
-    """Обработчик изменений файлов генераторов"""
-
-    def __init__(self, discovery_manager):
-        super().__init__()
-        self.discovery_manager = discovery_manager
-        self.reload_delay = 1.0
-        self.pending_reloads = {}
-        self.lock = RLock()
-
-    def on_modified(self, event):
-        if event.is_directory or not event.src_path.endswith('.py'):
-            return
-
-        # Игнорируем служебные файлы
-        if self._should_ignore_file(event.src_path):
-            return
-
-        self._schedule_reload(event.src_path)
-
-    def on_created(self, event):
-        if event.is_directory or not event.src_path.endswith('.py'):
-            return
-
-        if self._should_ignore_file(event.src_path):
-            return
-
-        logger.info(f"New generator file detected: {event.src_path}")
-        self._schedule_reload(event.src_path)
-
-    def _should_ignore_file(self, file_path: str) -> bool:
-        """Проверяет, нужно ли игнорировать файл"""
-        path = Path(file_path)
-        return (
-                path.name.startswith('_') or
-                path.name == '__init__.py' or
-                '.pyc' in path.name or
-                '__pycache__' in str(path)
-        )
-
-    def _schedule_reload(self, file_path: str):
-        """Планирует перезагрузку с задержкой для избежания множественных вызовов"""
-        with self.lock:
-            # Отменяем предыдущую перезагрузку
-            if file_path in self.pending_reloads:
-                self.pending_reloads[file_path].cancel()
-
-            # Планируем новую
-            timer = Timer(self.reload_delay, self._reload_file, [file_path])
-            self.pending_reloads[file_path] = timer
-            timer.start()
-
-    def _reload_file(self, file_path: str):
-        """Выполняет перезагрузку файла"""
-        try:
-            reloaded_count = self.discovery_manager.reload_single_file(file_path)
-            if reloaded_count > 0:
-                logger.info(f"✅ Hot reloaded {reloaded_count} generator(s) from {file_path}")
-            else:
-                logger.debug(f"No generators found in {file_path}")
-        except Exception as e:
-            logger.error(f"❌ Failed to hot reload {file_path}: {e}")
-        finally:
-            with self.lock:
-                self.pending_reloads.pop(file_path, None)
-
-
 class GeneratorDiscovery:
-    """Менеджер обнаружения и hot-reload генераторов"""
+    """Менеджер обнаружения генераторов с ручной перезагрузкой"""
 
     def __init__(self):
         self.discovery_paths = self._get_discovery_paths()
         self.loaded_modules = {}  # file_path -> (module_name, mod_time)
-        self.observer = None
-        self.watched_paths: Set[Path] = set()
         self.lock = RLock()
 
     def _get_discovery_paths(self) -> List[Path]:
@@ -152,20 +72,20 @@ class GeneratorDiscovery:
         logger.info(f"Generator discovery paths: {[str(p) for p in paths]}")
         return paths
 
-    def discover_generators(self) -> Dict[str, BaseGenerator]:
+    def discover_generators(self, force_reload=False) -> Dict[str, BaseGenerator]:
         """Обнаруживает все генераторы в путях поиска"""
         discovered = {}
 
         for path in self.discovery_paths:
             try:
-                path_generators = self._discover_in_path(path)
+                path_generators = self._discover_in_path(path, force_reload=force_reload)
                 discovered.update(path_generators)
             except Exception as e:
                 logger.error(f"Error discovering in {path}: {e}")
 
         return discovered
 
-    def _discover_in_path(self, path: Path) -> Dict[str, BaseGenerator]:
+    def _discover_in_path(self, path: Path, force_reload=False) -> Dict[str, BaseGenerator]:
         """Обнаруживает генераторы в конкретном пути"""
         generators = {}
 
@@ -176,7 +96,7 @@ class GeneratorDiscovery:
                 continue
 
             try:
-                file_generators = self._load_generators_from_file(py_file)
+                file_generators = self._load_generators_from_file(py_file, force_reload=force_reload)
                 generators.update(file_generators)
             except Exception as e:
                 logger.warning(f"Could not load generators from {py_file}: {e}")
@@ -191,7 +111,7 @@ class GeneratorDiscovery:
                 '__pycache__' in str(file_path)
         )
 
-    def _load_generators_from_file(self, file_path: Path) -> Dict[str, BaseGenerator]:
+    def _load_generators_from_file(self, file_path: Path, force_reload=False) -> Dict[str, BaseGenerator]:
         """Загружает генераторы из Python файла"""
         generators = {}
 
@@ -204,10 +124,19 @@ class GeneratorDiscovery:
             mod_time = file_path.stat().st_mtime
 
             with self.lock:
-                if file_path in self.loaded_modules:
+                # Если принудительная перезагрузка - удаляем из кэша
+                if force_reload and file_path in self.loaded_modules:
+                    cached_module_name, _ = self.loaded_modules[file_path]
+                    if cached_module_name in sys.modules:
+                        del sys.modules[cached_module_name]
+                    del self.loaded_modules[file_path]
+                
+                # Проверяем кэш только если не принудительная перезагрузка
+                elif not force_reload and file_path in self.loaded_modules:
                     cached_module_name, cached_mod_time = self.loaded_modules[file_path]
                     if cached_mod_time >= mod_time:
                         # Файл не изменился, возвращаем пустой результат
+                        logger.debug(f"Skipping {file_path} - not modified")
                         return generators
 
                     # Удаляем старый модуль
@@ -255,30 +184,37 @@ class GeneratorDiscovery:
                 continue
         return file_path.name
 
-    def reload_single_file(self, file_path: str) -> int:
-        """Перезагружает генераторы из одного файла"""
-        path_obj = Path(file_path)
+    def manual_reload_all(self) -> int:
+        """Ручная перезагрузка всех генераторов"""
+        logger.info("Manual reload of all generators requested...")
 
-        try:
-            generators = self._load_generators_from_file(path_obj)
+        # 1. СНАЧАЛА ОЧИЩАЕМ РЕЕСТР - ЭТО ВАЖНО!
+        registry = get_registry()
+        registry.clear()
+        logger.info("Registry cleared")
 
-            registry = get_registry()
-            reloaded_count = 0
+        # 2. Очищаем кэш модулей
+        with self.lock:
+            modules_to_remove = []
+            for module_name in sys.modules.keys():
+                if module_name.startswith('discovered_generator_'):
+                    modules_to_remove.append(module_name)
 
-            for name, generator in generators.items():
-                if registry.register(generator, force=True):
-                    reloaded_count += 1
+            for module_name in modules_to_remove:
+                del sys.modules[module_name]
 
-            return reloaded_count
+            self.loaded_modules.clear()
+            logger.info(f"Cleared {len(modules_to_remove)} cached modules")
 
-        except Exception as e:
-            logger.error(f"Error reloading file {file_path}: {e}")
-            return 0
+        # 3. Принудительно перезагружаем все генераторы
+        count = self.register_discovered_generators(force_reload=True)
+        logger.info(f"Manual reload completed: {count} generators loaded")
+        return count
 
-    def register_discovered_generators(self) -> int:
+    def register_discovered_generators(self, force_reload=False) -> int:
         """Регистрирует все обнаруженные генераторы"""
         registry = get_registry()
-        discovered = self.discover_generators()
+        discovered = self.discover_generators(force_reload=force_reload)
 
         registered_count = 0
         for name, generator in discovered.items():
@@ -291,74 +227,24 @@ class GeneratorDiscovery:
         logger.info(f"Registered {registered_count} discovered generators")
         return registered_count
 
-    def start_hot_reload(self) -> bool:
-        """Запускает систему hot-reload"""
-        if not HAS_WATCHDOG:
-            logger.error("Watchdog not available. Install with: pip install watchdog")
-            return False
+    def get_discovery_stats(self) -> Dict:
+        """Получает статистику обнаружения генераторов"""
+        stats = {
+            'discovery_paths': [str(p) for p in self.discovery_paths],
+            'loaded_modules_count': len(self.loaded_modules),
+            'loaded_files': []
+        }
 
-        if self.observer and self.observer.is_alive():
-            logger.warning("Hot reload already running")
-            return True
-
-        try:
-            self.observer = Observer()
-            handler = GeneratorFileHandler(self)
-
-            # Добавляем все пути для наблюдения
-            for path in self.discovery_paths:
-                if path.exists():
-                    self.observer.schedule(handler, str(path), recursive=True)
-                    self.watched_paths.add(path)
-                    logger.info(f"Watching: {path}")
-
-            if self.watched_paths:
-                self.observer.start()
-                logger.info("✅ Hot reload started")
-                return True
-            else:
-                logger.warning("No valid paths to watch")
-                return False
-
-        except Exception as e:
-            logger.error(f"Failed to start hot reload: {e}")
-            return False
-
-    def stop_hot_reload(self) -> bool:
-        """Останавливает систему hot-reload"""
-        if self.observer and self.observer.is_alive():
-            try:
-                self.observer.stop()
-                self.observer.join(timeout=5)
-                logger.info("🛑 Hot reload stopped")
-                return True
-            except Exception as e:
-                logger.error(f"Error stopping hot reload: {e}")
-                return False
-        return True
-
-    def is_hot_reload_active(self) -> bool:
-        """Проверяет, активен ли hot-reload"""
-        return self.observer and self.observer.is_alive()
-
-    def force_reload_all(self) -> int:
-        """Принудительно перезагружает все генераторы"""
-        logger.info("Force reloading all generators...")
-
-        # Очищаем кэш модулей
         with self.lock:
-            modules_to_remove = []
-            for module_name in sys.modules.keys():
-                if module_name.startswith('discovered_generator_'):
-                    modules_to_remove.append(module_name)
+            for file_path, (module_name, mod_time) in self.loaded_modules.items():
+                stats['loaded_files'].append({
+                    'file_path': str(file_path),
+                    'module_name': module_name,
+                    'mod_time': mod_time,
+                    'exists': file_path.exists()
+                })
 
-            for module_name in modules_to_remove:
-                del sys.modules[module_name]
-
-            self.loaded_modules.clear()
-
-        # Перезагружаем
-        return self.register_discovered_generators()
+        return stats
 
 
 # Глобальный экземпляр
@@ -375,21 +261,11 @@ def discover_and_register_generators() -> int:
     return _discovery_manager.register_discovered_generators()
 
 
-def start_hot_reload() -> bool:
-    """Запускает hot-reload"""
-    return _discovery_manager.start_hot_reload()
+def manual_reload_all() -> int:
+    """Ручная перезагрузка всех генераторов"""
+    return _discovery_manager.manual_reload_all()
 
 
-def stop_hot_reload() -> bool:
-    """Останавливает hot-reload"""
-    return _discovery_manager.stop_hot_reload()
-
-
-def is_hot_reload_active() -> bool:
-    """Проверяет статус hot-reload"""
-    return _discovery_manager.is_hot_reload_active()
-
-
-def force_reload_all() -> int:
-    """Принудительная перезагрузка всех генераторов"""
-    return _discovery_manager.force_reload_all()
+def get_discovery_stats() -> Dict:
+    """Получает статистику обнаружения"""
+    return _discovery_manager.get_discovery_stats()

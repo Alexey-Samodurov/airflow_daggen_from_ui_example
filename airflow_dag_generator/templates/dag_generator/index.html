@@ -2,32 +2,22 @@
 
 {% block title %}DAG Generator - Главная{% endblock %}
 
+{% block extra_css %}
+    <link rel="stylesheet" href="{{ url_for('dag_generator.static', filename='css/index.css') }}">
+{% endblock %}
+
 {% block content %}
+<!-- Заголовок с единственной кнопкой перезагрузки -->
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>Генератор DAG'ов</h2>
+    <button id="reload-generators-btn" class="btn btn-primary">
+        <i class="fas fa-sync-alt"></i> Перезагрузить генераторы
+    </button>
+</div>
+
+<!-- Основное содержимое -->
 <div class="row">
     <div class="col-lg-10 mx-auto">
-        <!-- Заголовок страницы -->
-        <div class="page-header mb-4">
-            <div class="d-flex justify-content-between align-items-center">
-                <div>
-                    <h1 class="h2 mb-2">
-                        <i class="fas fa-cogs text-primary me-3"></i>
-                        Генератор DAG'ов Airflow
-                    </h1>
-                    <p class="text-muted mb-0">Создавайте DAG'ы с помощью готовых шаблонов и генераторов</p>
-                </div>
-                <div class="d-flex gap-2">
-                    <button class="btn btn-outline-info" onclick="toggleHotReload()" title="Управление Hot Reload">
-                        <i class="fas fa-fire"></i>
-                        <span class="d-none d-md-inline">Hot Reload</span>
-                    </button>
-                    <button class="btn btn-outline-secondary" onclick="reloadGenerators()" title="Перезагрузить генераторы">
-                        <i class="fas fa-sync"></i>
-                        <span class="d-none d-md-inline">Обновить</span>
-                    </button>
-                </div>
-            </div>
-        </div>
-
         <!-- Главная карточка с выбором генератора -->
         <div class="card shadow-sm mb-4">
             <div class="card-header bg-gradient-primary text-white">
@@ -51,7 +41,6 @@
                             </label>
                             <select id="generator-select" class="form-select form-select-lg">
                                 <option value="">Выберите тип генератора...</option>
-                                <!-- Опции будут добавлены динамически через JS -->
                             </select>
                             <div class="form-text">
                                 <i class="fas fa-info-circle me-1"></i>
@@ -105,7 +94,6 @@
 
                 <!-- Контейнер для динамической формы -->
                 <div id="dynamic-form-container">
-                    <!-- Пустое состояние -->
                     <div id="empty-state" class="empty-state text-center py-5">
                         <div class="empty-icon mb-3">
                             <i class="fas fa-arrow-up fa-4x text-muted opacity-50"></i>
@@ -123,60 +111,11 @@
         <div id="result-container" class="d-none">
             <!-- Контент будет добавлен динамически -->
         </div>
-
-        <!-- Статистика и информация -->
-        <div class="row mt-4">
-            <div class="col-md-6">
-                <div class="card bg-light">
-                    <div class="card-body">
-                        <h6 class="card-title">
-                            <i class="fas fa-chart-bar text-info me-2"></i>
-                            Быстрая статистика
-                        </h6>
-                        <div class="stats-grid">
-                            <div class="stat-item d-flex justify-content-between py-1">
-                                <span class="text-muted">Активных генераторов:</span>
-                                <span id="active-generators-count" class="fw-bold">-</span>
-                            </div>
-                            <div class="stat-item d-flex justify-content-between py-1">
-                                <span class="text-muted">Hot Reload:</span>
-                                <span id="hot-reload-status" class="badge bg-secondary">Проверка...</span>
-                            </div>
-                            <div class="stat-item d-flex justify-content-between py-1">
-                                <span class="text-muted">Последнее обновление:</span>
-                                <span id="last-update" class="text-muted small">-</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-6">
-                <div class="card bg-light">
-                    <div class="card-body">
-                        <h6 class="card-title">
-                            <i class="fas fa-lightbulb text-warning me-2"></i>
-                            Полезные советы
-                        </h6>
-                        <ul class="list-unstyled mb-0 small">
-                            <li class="mb-2">
-                                <i class="fas fa-check text-success me-2"></i>
-                                Используйте Hot Reload для автоматического обновления генераторов
-                            </li>
-                            <li class="mb-2">
-                                <i class="fas fa-check text-success me-2"></i>
-                                Проверяйте предпросмотр перед генерацией финального DAG
-                            </li>
-                            <li class="mb-0">
-                                <i class="fas fa-check text-success me-2"></i>
-                                Сохраняйте часто используемые конфигурации
-                            </li>
-                        </ul>
-                    </div>
-                </div>
-            </div>
-        </div>
     </div>
 </div>
+
+<!-- Контейнер для уведомлений -->
+<div id="notifications-container"></div>
 
 <!-- Скрытые данные для JavaScript -->
 <script type="application/json" id="initial-data">
@@ -188,232 +127,6 @@
 </script>
 {% endblock %}
 
-{% block extra_css %}
-<style>
-.bg-gradient-primary {
-    background: linear-gradient(135deg, #007bff, #0056b3);
-}
-
-.page-header {
-    border-bottom: 1px solid #e9ecef;
-    padding-bottom: 1rem;
-}
-
-.generator-selection {
-    position: relative;
-}
-
-.generator-info {
-    animation: slideInUp 0.3s ease-out;
-}
-
-.empty-state {
-    transition: all 0.3s ease;
-}
-
-.stats-grid .stat-item {
-    border-bottom: 1px solid #dee2e6;
-}
-
-.stats-grid .stat-item:last-child {
-    border-bottom: none;
-}
-
-.info-card {
-    border-left: 4px solid #007bff;
-}
-
-@keyframes slideInUp {
-    from {
-        opacity: 0;
-        transform: translateY(20px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-@media (max-width: 768px) {
-    .page-header h1 {
-        font-size: 1.5rem;
-    }
-    
-    .card-header h4 {
-        font-size: 1.25rem;
-    }
-}
-</style>
-{% endblock %}
-
 {% block extra_js %}
-<script>
-// Инициализация данных из шаблона
-window.INITIAL_DATA = JSON.parse(document.getElementById('initial-data').textContent);
-
-console.log('=== ОТЛАДКА DAG GENERATOR ===');
-console.log('INITIAL_DATA loaded:', window.INITIAL_DATA);
-console.log('Templates:', window.INITIAL_DATA.templates);
-console.log('Templates type:', typeof window.INITIAL_DATA.templates);
-console.log('Templates keys:', Object.keys(window.INITIAL_DATA.templates || {}));
-
-// Проверим, что модули загружены
-console.log('apiClient available:', typeof window.apiClient);
-console.log('DagGeneratorUtils available:', typeof window.DagGeneratorUtils);
-console.log('DynamicFormBuilder available:', typeof window.DynamicFormBuilder);
-
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('DOM loaded, initializing...');
-    
-    // Временное решение: заполняем селект данными из шаблона
-    const select = document.getElementById('generator-select');
-    const templates = window.INITIAL_DATA.templates || {};
-    
-    if (select && templates) {
-        console.log('Populating select with templates:', templates);
-        
-        // Очищаем опции (кроме первой)
-        while (select.children.length > 1) {
-            select.removeChild(select.lastChild);
-        }
-        
-        // Добавляем генераторы из шаблона
-        Object.entries(templates).forEach(([key, name]) => {
-            const option = document.createElement('option');
-            option.value = key;
-            option.textContent = name;
-            select.appendChild(option);
-            console.log(`Added option: ${key} = ${name}`);
-        });
-        
-        // Обновляем счетчики
-        const count = Object.keys(templates).length;
-        const counters = document.querySelectorAll('#generators-count, #active-generators-count');
-        counters.forEach(el => {
-            if (el) el.textContent = count;
-        });
-        
-        console.log(`Populated ${count} generators from template data`);
-    } else {
-        console.error('Select element or templates not found:', {
-            select: !!select,
-            templates: templates
-        });
-    }
-    
-    // Пытаемся инициализировать главную функцию если доступна
-    if (typeof initializeIndexPage === 'function') {
-        console.log('Calling initializeIndexPage...');
-        initializeIndexPage();
-    } else if (typeof window.apiClient !== 'undefined') {
-        // Если API клиент доступен, проверим его работу
-        console.log('Testing API client...');
-        window.apiClient.getGenerators()
-            .then(response => {
-                console.log('API response:', response);
-                if (response.status === 'success' && response.generators) {
-                    console.log('API generators:', response.generators);
-                    
-                    // Обновляем селект данными из API
-                    const apiSelect = document.getElementById('generator-select');
-                    if (apiSelect && response.generators.length > 0) {
-                        // Очищаем опции (кроме первой)
-                        while (apiSelect.children.length > 1) {
-                            apiSelect.removeChild(apiSelect.lastChild);
-                        }
-                        
-                        // Добавляем генераторы из API
-                        response.generators.forEach(generator => {
-                            const option = document.createElement('option');
-                            option.value = generator.name;
-                            option.textContent = generator.display_name;
-                            option.title = generator.description;
-                            apiSelect.appendChild(option);
-                        });
-                        
-                        console.log(`Updated select with ${response.generators.length} generators from API`);
-                    }
-                }
-            })
-            .catch(error => {
-                console.error('API error:', error);
-                console.log('Fallback: using template data only');
-            });
-    } else {
-        console.warn('No API client available, using template data only');
-    }
-});
-
-// Добавим обработчик для select
-document.addEventListener('change', function(e) {
-    if (e.target.id === 'generator-select') {
-        console.log('Generator selected:', e.target.value);
-        
-        // Простое отображение информации (без API)
-        if (e.target.value) {
-            const infoBlock = document.getElementById('generator-info');
-            const displayName = document.getElementById('generator-display-name');
-            const description = document.getElementById('generator-description');
-            
-            if (infoBlock && displayName && description) {
-                displayName.textContent = e.target.options[e.target.selectedIndex].text;
-                description.textContent = `Генератор: ${e.target.value}`;
-                infoBlock.classList.remove('d-none');
-                console.log('Info block shown');
-            }
-            
-            // Скрываем пустое состояние
-            const emptyState = document.getElementById('empty-state');
-            if (emptyState) {
-                emptyState.style.display = 'none';
-            }
-            
-        } else {
-            const infoBlock = document.getElementById('generator-info');
-            if (infoBlock) {
-                infoBlock.classList.add('d-none');
-            }
-            
-            // Показываем пустое состояние
-            const emptyState = document.getElementById('empty-state');
-            if (emptyState) {
-                emptyState.style.display = 'block';
-            }
-        }
-    }
-});
-
-// Обработчики для кнопок
-window.reloadGenerators = function() {
-    console.log('Reload generators clicked');
-    location.reload();
-};
-
-window.toggleHotReload = function() {
-    console.log('Toggle hot reload clicked');
-    // Пока просто показываем алерт
-    alert('Hot Reload функция в разработке');
-};
-
-// Проверяем доступность статических файлов
-setTimeout(() => {
-    console.log('=== ПРОВЕРКА СТАТИЧЕСКИХ ФАЙЛОВ ===');
-    const staticFiles = [
-        '/dag-generator/static/js/utils.js',
-        '/dag-generator/static/js/api-client.js',
-        '/dag-generator/static/js/dynamic-form-builder.js',
-        '/dag-generator/static/js/main.js'
-    ];
-    
-    staticFiles.forEach(file => {
-        fetch(file)
-            .then(response => {
-                console.log(`${file}: ${response.ok ? 'OK' : 'FAILED'} (${response.status})`);
-            })
-            .catch(error => {
-                console.error(`${file}: ERROR -`, error.message);
-            });
-    });
-}, 1000);
-</script>
+    <script src="{{ url_for('dag_generator.static', filename='js/index.js') }}"></script>
 {% endblock %}

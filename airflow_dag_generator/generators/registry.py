@@ -98,31 +98,6 @@ class GeneratorRegistry:
             self._generators.clear()
             logger.info("Registry cleared")
 
-    def reload_from_file(self, file_path: str) -> int:
-        """
-        Перезагружает генераторы из файла
-
-        Returns:
-            Количество перезагруженных генераторов
-        """
-        try:
-            from pathlib import Path
-            from .discovery import GeneratorDiscovery
-
-            discovery = GeneratorDiscovery()
-            generators = discovery._load_generators_from_file(Path(file_path))
-
-            reloaded_count = 0
-            for name, generator in generators.items():
-                if self.register(generator, force=True):
-                    reloaded_count += 1
-
-            return reloaded_count
-
-        except Exception as e:
-            logger.error(f"Error reloading generators from {file_path}: {e}")
-            return 0
-
     def __len__(self) -> int:
         with self._lock:
             return len(self._generators)

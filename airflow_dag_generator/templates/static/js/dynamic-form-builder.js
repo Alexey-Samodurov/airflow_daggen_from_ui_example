@@ -1,7 +1,6 @@
 /**
  * Конструктор динамических форм для генераторов DAG
  */
-
 class DynamicFormBuilder {
     constructor(containerId) {
         this.container = document.getElementById(containerId);
@@ -17,23 +16,24 @@ class DynamicFormBuilder {
         }
 
         this.currentGeneratorType = generatorType;
-        DagGeneratorUtils.showLoading('dynamic-form-container');
+        this._showLoading();
 
         try {
-            const response = await apiClient.getGeneratorFields(generatorType);
+            const response = await fetch(`/dag-generator/api/generators/${generatorType}/fields`);
+            const data = await response.json();
 
-            if (response.success) {
-                this.fieldsConfig = response.fields;
-                this.validationRules = response.validation_rules || {};
-                this._buildForm(response);
+            if (data.success) {
+                this.fieldsConfig = data.fields;
+                this.validationRules = data.validation_rules || {};
+                this._buildForm(data);
             } else {
-                this._showError(response.error || 'Ошибка загрузки конфигурации');
+                this._showError(data.error || 'Ошибка загрузки конфигурации');
             }
         } catch (error) {
             console.error('Error loading generator form:', error);
             this._showError('Не удалось загрузить конфигурацию генератора');
         } finally {
-            DagGeneratorUtils.hideLoading('dynamic-form-container');
+            this._hideLoading();
         }
     }
 
@@ -75,13 +75,13 @@ class DynamicFormBuilder {
 
     _createFormHeader(generatorData) {
         const header = document.createElement('div');
-        header.className = 'form-header';
+        header.className = 'form-header mb-4';
         header.innerHTML = `
-            <div class="d-flex align-items-center mb-2">
-                <i class="fas fa-magic fa-2x me-3"></i>
+            <div class="d-flex align-items-center">
+                <i class="fas fa-magic fa-2x me-3 text-primary"></i>
                 <div>
                     <h3 class="mb-1">${generatorData.display_name}</h3>
-                    <p class="mb-0 opacity-90">${generatorData.description}</p>
+                    <p class="mb-0 text-muted">${generatorData.description}</p>
                 </div>
             </div>
         `;
@@ -125,10 +125,12 @@ class DynamicFormBuilder {
         groupDiv.className = 'field-group mb-4';
 
         const titleDiv = document.createElement('div');
-        titleDiv.className = 'field-group-title';
+        titleDiv.className = 'field-group-title mb-3';
         titleDiv.innerHTML = `
-            <i class="fas fa-${this._getGroupIcon(groupName)} me-2"></i>
-            ${groupName}
+            <h5 class="text-primary mb-0">
+                <i class="fas fa-${this._getGroupIcon(groupName)} me-2"></i>
+                ${groupName}
+            </h5>
         `;
         groupDiv.appendChild(titleDiv);
 
@@ -202,11 +204,11 @@ class DynamicFormBuilder {
 
         let labelText = fieldConfig.label;
         if (fieldConfig.required) {
-            labelText += ' <span class="required-indicator">*</span>';
+            labelText += ' <span class="text-danger">*</span>';
         }
 
         if (fieldConfig.help_text) {
-            labelText += ` <i class="fas fa-question-circle help-text-icon ms-1" 
+            labelText += ` <i class="fas fa-question-circle text-muted ms-1" 
                            title="${fieldConfig.help_text}" 
                            data-bs-toggle="tooltip"></i>`;
         }
@@ -264,8 +266,8 @@ class DynamicFormBuilder {
 
         this._setCommonInputAttributes(select, fieldConfig);
 
-        // Добавляем пустую опцию для обязательных полей
-        if (fieldConfig.required) {
+        // Добавляем пустую опцию для необязательных полей
+        if (!fieldConfig.required) {
             const emptyOption = document.createElement('option');
             emptyOption.value = '';
             emptyOption.textContent = 'Выберите значение...';
@@ -277,9 +279,10 @@ class DynamicFormBuilder {
             fieldConfig.options.forEach(option => {
                 const optionElement = document.createElement('option');
                 optionElement.value = option.value;
-                optionElement.textContent = option.text;
+                // Поддерживаем и 'label' и 'text' для обратной совместимости
+                optionElement.textContent = option.label || option.text || option.value;
 
-                if (fieldConfig.default === option.value) {
+                if (fieldConfig.default_value === option.value) {
                     optionElement.selected = true;
                 }
 
@@ -316,7 +319,7 @@ class DynamicFormBuilder {
         input.name = fieldConfig.name;
         input.id = fieldConfig.name;
 
-        if (fieldConfig.default) input.checked = fieldConfig.default;
+        if (fieldConfig.default_value) input.checked = fieldConfig.default_value;
         if (fieldConfig.required) input.required = true;
 
         const label = document.createElement('label');
@@ -325,7 +328,7 @@ class DynamicFormBuilder {
         label.textContent = fieldConfig.label;
 
         if (fieldConfig.required) {
-            label.innerHTML += ' <span class="required-indicator">*</span>';
+            label.innerHTML += ' <span class="text-danger">*</span>';
         }
 
         div.appendChild(input);
@@ -336,7 +339,9 @@ class DynamicFormBuilder {
 
     _setCommonInputAttributes(input, fieldConfig) {
         if (fieldConfig.placeholder) input.placeholder = fieldConfig.placeholder;
-        if (fieldConfig.default) input.value = fieldConfig.default;
+        if (fieldConfig.default_value !== undefined) {
+            input.value = fieldConfig.default_value;
+        }
         if (fieldConfig.required) input.required = true;
         if (fieldConfig.readonly) input.readOnly = true;
         if (fieldConfig.disabled) input.disabled = true;
@@ -357,16 +362,16 @@ class DynamicFormBuilder {
 
     _createFormActions() {
         const actionsDiv = document.createElement('div');
-        actionsDiv.className = 'form-buttons d-flex gap-2 justify-content-end';
+        actionsDiv.className = 'form-actions d-flex gap-3 justify-content-center mt-4 pt-4 border-top';
         actionsDiv.innerHTML = `
-            <button type="button" class="btn btn-outline-secondary" onclick="formBuilder.resetForm()">
+            <button type="button" class="btn btn-outline-secondary btn-lg" onclick="formBuilder.resetForm()">
                 <i class="fas fa-undo me-2"></i>Сбросить
             </button>
-            <button type="button" class="btn btn-info" onclick="formBuilder.previewDAG()">
+            <button type="button" class="btn btn-info btn-lg" onclick="formBuilder.previewDAG()">
                 <i class="fas fa-eye me-2"></i>Предпросмотр
             </button>
-            <button type="button" class="btn btn-primary" onclick="formBuilder.generateDAG()">
-                <i class="fas fa-magic me-2"></i>Генерировать DAG
+            <button type="button" class="btn btn-success btn-lg" onclick="formBuilder.generateDAG()">
+                <i class="fas fa-magic me-2"></i>Создать DAG
             </button>
         `;
         return actionsDiv;
@@ -404,7 +409,7 @@ class DynamicFormBuilder {
                 this._validateField(input);
             });
 
-            input.addEventListener('input', DagGeneratorUtils.debounce(() => {
+            input.addEventListener('input', this._debounce(() => {
                 if (input.classList.contains('is-invalid')) {
                     this._validateField(input);
                 }
@@ -510,29 +515,41 @@ class DynamicFormBuilder {
 
     async generateDAG() {
         if (!this._validateForm()) {
-            DagGeneratorUtils.showErrorMessage('Пожалуйста, исправьте ошибки в форме');
+            this._showNotification('error', 'Пожалуйста, исправьте ошибки в форме');
             return;
         }
 
         const formData = this.getFormData();
-        const loadingBtn = document.querySelector('.btn-primary');
+        const loadingBtn = document.querySelector('.btn-success');
         const originalText = loadingBtn.innerHTML;
 
         try {
-            loadingBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Генерация...';
+            loadingBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Создание...';
             loadingBtn.disabled = true;
 
-            const response = await apiClient.generateDAG(this.currentGeneratorType, formData);
+            const response = await fetch('/dag-generator/generate', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': this._getCsrfToken()
+                },
+                body: JSON.stringify({
+                    generator_type: this.currentGeneratorType,
+                    form_data: formData
+                })
+            });
 
-            if (response.success) {
-                DagGeneratorUtils.showSuccessMessage('DAG успешно сгенерирован!');
-                this._showGeneratedCode(response.dag_code, response.file_path);
+            const data = await response.json();
+
+            if (data.success) {
+                this._showNotification('success', '✅ DAG успешно создан!');
+                this._showGeneratedCode(data.dag_code, data.dag_file_path);
             } else {
-                DagGeneratorUtils.showErrorMessage(response.error || 'Ошибка генерации DAG');
+                throw new Error(data.error || 'Ошибка создания DAG');
             }
         } catch (error) {
             console.error('Error generating DAG:', error);
-            DagGeneratorUtils.showErrorMessage(error);
+            this._showNotification('error', `❌ Ошибка создания: ${error.message}`);
         } finally {
             loadingBtn.innerHTML = originalText;
             loadingBtn.disabled = false;
@@ -541,23 +558,43 @@ class DynamicFormBuilder {
 
     async previewDAG() {
         if (!this._validateForm()) {
-            DagGeneratorUtils.showErrorMessage('Пожалуйста, исправьте ошибки в форме');
+            this._showNotification('error', 'Пожалуйста, исправьте ошибки в форме');
             return;
         }
 
         const formData = this.getFormData();
+        const loadingBtn = document.querySelector('.btn-info');
+        const originalText = loadingBtn.innerHTML;
 
         try {
-            const response = await apiClient.previewDAG(this.currentGeneratorType, formData);
+            loadingBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Предпросмотр...';
+            loadingBtn.disabled = true;
 
-            if (response.success) {
-                this._showGeneratedCode(response.dag_code, null, true);
+            const response = await fetch('/dag-generator/preview', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': this._getCsrfToken()
+                },
+                body: JSON.stringify({
+                    generator_type: this.currentGeneratorType,
+                    form_data: formData
+                })
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                this._showGeneratedCode(data.dag_code, null, true);
             } else {
-                DagGeneratorUtils.showErrorMessage(response.error || 'Ошибка предпросмотра');
+                throw new Error(data.error || 'Ошибка предпросмотра');
             }
         } catch (error) {
             console.error('Error previewing DAG:', error);
-            DagGeneratorUtils.showErrorMessage(error);
+            this._showNotification('error', `❌ Ошибка предпросмотра: ${error.message}`);
+        } finally {
+            loadingBtn.innerHTML = originalText;
+            loadingBtn.disabled = false;
         }
     }
 
@@ -575,19 +612,19 @@ class DynamicFormBuilder {
 
         // Устанавливаем значения по умолчанию
         this.fieldsConfig?.forEach(field => {
-            if (field.default !== undefined) {
+            if (field.default_value !== undefined) {
                 const input = form.querySelector(`[name="${field.name}"]`);
                 if (input) {
                     if (input.type === 'checkbox') {
-                        input.checked = field.default;
+                        input.checked = field.default_value;
                     } else {
-                        input.value = field.default;
+                        input.value = field.default_value;
                     }
                 }
             }
         });
 
-        DagGeneratorUtils.showInfoMessage('Форма сброшена');
+        this._showNotification('info', '📝 Форма сброшена');
     }
 
     _showGeneratedCode(code, filePath = null, isPreview = false) {
@@ -602,10 +639,10 @@ class DynamicFormBuilder {
 
         const title = isPreview ? 'Предпросмотр DAG' : 'Сгенерированный DAG';
         const statusClass = isPreview ? 'info' : 'success';
-        const statusText = isPreview ? 'Предпросмотр готов' : 'DAG успешно сгенерирован';
+        const statusText = isPreview ? 'Предпросмотр готов' : 'DAG успешно создан';
 
         resultContainer.innerHTML = `
-            <div class="card slide-up">
+            <div class="card shadow-sm slide-up">
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <h5 class="mb-0">
                         <i class="fas fa-code me-2"></i>${title}
@@ -613,7 +650,7 @@ class DynamicFormBuilder {
                     <div class="d-flex gap-2">
                         <span class="badge bg-${statusClass}">${statusText}</span>
                         <button type="button" class="btn btn-sm btn-outline-secondary" 
-                                onclick="DagGeneratorUtils.copyToClipboard('#generated-code')">
+                                onclick="navigator.clipboard.writeText(document.getElementById('generated-code').textContent)">
                             <i class="fas fa-copy me-1"></i>Копировать
                         </button>
                     </div>
@@ -624,7 +661,7 @@ class DynamicFormBuilder {
                             <i class="fas fa-file-code me-2"></i>Файл: ${filePath}
                         </small>
                     </div>` : ''}
-                    <pre class="mb-0"><code id="generated-code" class="language-python">${this._escapeHtml(code)}</code></pre>
+                    <pre class="mb-0 p-3"><code id="generated-code" class="language-python">${this._escapeHtml(code)}</code></pre>
                 </div>
             </div>
         `;
@@ -654,10 +691,74 @@ class DynamicFormBuilder {
         this.container.className = '';
     }
 
+    _showLoading() {
+        const loadingDiv = document.createElement('div');
+        loadingDiv.id = 'form-loading';
+        loadingDiv.className = 'text-center py-4';
+        loadingDiv.innerHTML = `
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Загрузка...</span>
+            </div>
+            <p class="mt-3 text-muted">Загрузка конфигурации генератора...</p>
+        `;
+        this.container.innerHTML = '';
+        this.container.appendChild(loadingDiv);
+    }
+
+    _hideLoading() {
+        const loading = document.getElementById('form-loading');
+        if (loading) {
+            loading.remove();
+        }
+    }
+
+    _getCsrfToken() {
+        // Получаем CSRF токен из мета-тега или скрытого поля
+        const meta = document.querySelector('meta[name="csrf-token"]');
+        if (meta) return meta.getAttribute('content');
+        
+        const input = document.querySelector('input[name="csrf_token"]');
+        if (input) return input.value;
+        
+        return '';
+    }
+
+    _showNotification(type, message) {
+        // Простая реализация уведомлений
+        const toast = document.createElement('div');
+        toast.className = `alert alert-${type === 'error' ? 'danger' : type} alert-dismissible fade show position-fixed`;
+        toast.style.cssText = 'top: 20px; right: 20px; z-index: 1055; min-width: 300px;';
+        toast.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        
+        document.body.appendChild(toast);
+        
+        // Автоматически скрываем через 5 секунд
+        setTimeout(() => {
+            if (toast.parentNode) {
+                toast.remove();
+            }
+        }, 5000);
+    }
+
     _escapeHtml(text) {
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
+    }
+
+    _debounce(func, wait) {
+        let timeout;
+        return function executedFunction(...args) {
+            const later = () => {
+                clearTimeout(timeout);
+                func(...args);
+            };
+            clearTimeout(timeout);
+            timeout = setTimeout(later, wait);
+        };
     }
 }
 

@@ -1,18 +1,16 @@
 import logging
 import os
 import re
-import secrets
 import time
 
 from flask import (
     render_template, request, redirect, url_for, flash, jsonify,
-    session
+    session, Blueprint
 )
 
-from airflow_dag_generator.generators.discovery import get_discovery_manager
-from airflow_dag_generator.generators.registry import get_registry, list_generators, get_generator
-
-from flask import Blueprint
+from airflow_dag_generator.generators import (
+    get_registry, list_generators, get_generator, safe_manual_reload
+)
 
 # Создаем Blueprint для веб-интерфейса
 dag_generator_bp = Blueprint(
@@ -45,8 +43,6 @@ def validate_dag_id(dag_id):
     """Простая валидация DAG ID"""
     if not dag_id:
         return False
-
-    # DAG ID должен содержать только буквы, цифры и подчеркивания
     pattern = r'^[a-zA-Z][a-zA-Z0-9_]*$'
     return bool(re.match(pattern, dag_id))
 
@@ -54,23 +50,16 @@ def validate_dag_id(dag_id):
 def save_dag_file(dag_id, dag_code):
     """Сохраняет DAG файл в папку dags"""
     try:
-        # Получаем путь к папке dags (обычно /opt/airflow/dags в контейнере)
         dags_folder = os.environ.get('AIRFLOW__CORE__DAGS_FOLDER', '/opt/airflow/dags')
-
-        # Создаем имя файла
         filename = f"{dag_id}.py"
         file_path = os.path.join(dags_folder, filename)
-
-        # Создаем папку если не существует
         os.makedirs(dags_folder, exist_ok=True)
-
-        # Сохраняем файл
+        
         with open(file_path, 'w', encoding='utf-8') as f:
             f.write(dag_code)
-
+        
         logger.info(f"DAG file saved: {file_path}")
         return file_path
-
     except Exception as e:
         logger.error(f"Error saving DAG file: {e}")
         raise
@@ -80,13 +69,10 @@ def get_templates_and_schedules():
     """Возвращает доступные шаблоны и расписания"""
     try:
         generators_list = list_generators()
-
-        # Формируем словарь шаблонов
         templates = {}
         for generator in generators_list:
             templates[generator['name']] = generator['display_name']
 
-        # Общие варианты расписаний
         schedules = [
             {'value': '@once', 'text': 'Один раз'},
             {'value': '@daily', 'text': 'Ежедневно'},
@@ -98,7 +84,6 @@ def get_templates_and_schedules():
         ]
 
         return templates, schedules
-
     except Exception as e:
         logger.error(f"Error getting templates and schedules: {e}")
         return {}, []
@@ -108,28 +93,11 @@ def get_templates_and_schedules():
 def index():
     """Главная страница генератора DAG'ов"""
     try:
-        # Получаем данные для шаблона
         templates, schedules = get_templates_and_schedules()
         csrf_token = get_csrf_token()
 
-        # Отладочная информация
         logger.info(f"Index page: {len(templates)} templates available")
         logger.info(f"Templates: {list(templates.keys())}")
-
-        # Проверяем пути к статическим файлам
-        blueprint_folder = os.path.dirname(__file__)
-        static_folder = os.path.join(blueprint_folder, 'templates', 'static')
-        logger.info(f"Blueprint folder: {blueprint_folder}")
-        logger.info(f"Static folder path: {static_folder}")
-        logger.info(f"Static folder exists: {os.path.exists(static_folder)}")
-
-        if os.path.exists(static_folder):
-            js_folder = os.path.join(static_folder, 'js')
-            if os.path.exists(js_folder):
-                js_files = os.listdir(js_folder)
-                logger.info(f"JS files found: {js_files}")
-            else:
-                logger.warning(f"JS folder not found: {js_folder}")
 
         return render_template(
             'dag_generator/index.html',
@@ -137,7 +105,6 @@ def index():
             schedules=schedules,
             csrf_token=csrf_token
         )
-
     except Exception as e:
         logger.error(f"Error in index route: {e}")
         import traceback
@@ -163,17 +130,59 @@ def api_get_generators():
         }), 500
 
 
-@dag_generator_bp.route('/api/csrf-token')
-def get_csrf_token_endpoint():
-    """API эндпоинт для получения CSRF токена"""
+@dag_generator_bp.route('/api/debug/registry')
+def api_debug_registry():
+    """ОТЛАДОЧНЫЙ эндпоинт для проверки состояния реестра"""
     try:
-        token = get_csrf_token()
+        registry = get_registry()
+        generators_dict = registry.get_generators_dict()
+        
+        debug_info = {
+            'registry_size': len(registry),
+            'generator_names': list(generators_dict.keys()),
+            'generators_details': []
+        }
+        
+        for name, gen in generators_dict.items():
+            debug_info['generators_details'].append({
+                'name': name,
+                'class': gen.__class__.__name__,
+                'display_name': gen.get_display_name(),
+                'module': gen.__class__.__module__,
+                'file': getattr(gen.__class__, '__module__', 'unknown')
+            })
+        
         return jsonify({
             'success': True,
-            'csrf_token': token
+            'debug_info': debug_info
         })
     except Exception as e:
-        logger.error(f"Error getting CSRF token: {e}")
+        logger.error(f"Error in debug registry: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@dag_generator_bp.route('/api/reload/manual', methods=['POST'])
+def api_manual_reload():
+    """API эндпоинт для безопасной ручной перезагрузки генераторов"""
+    try:
+        logger.info("=== MANUAL RELOAD API CALLED ===")
+        
+        # Используем безопасную функцию перезагрузки
+        count = safe_manual_reload()
+        
+        logger.info(f"Manual reload API completed: {count} generators loaded")
+        return jsonify({
+            'success': True,
+            'reloaded_count': count,
+            'message': f'Перезагружено {count} генераторов'
+        })
+    except Exception as e:
+        logger.error(f"Error during manual reload API: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({
             'success': False,
             'error': str(e)
@@ -184,15 +193,35 @@ def get_csrf_token_endpoint():
 def api_get_generator_fields(generator_type):
     """API эндпоинт для получения полей генератора"""
     try:
+        logger.info(f"=== GETTING FIELDS FOR GENERATOR: {generator_type} ===")
+        
+        # Проверяем реестр перед использованием
+        registry = get_registry()
+        all_generators = registry.get_generator_names()
+        logger.info(f"Available generators in registry: {all_generators}")
+        
         generator = get_generator(generator_type)
         if not generator:
-            return jsonify({
-                'success': False,
-                'error': f'Генератор {generator_type} не найден'
-            }), 404
+            # Пытаемся перезагрузить и еще раз найти
+            logger.warning(f"Generator '{generator_type}' not found, trying reload...")
+            try:
+                safe_manual_reload()
+                generator = get_generator(generator_type)
+            except:
+                pass
+            
+            if not generator:
+                logger.error(f"Generator '{generator_type}' not found even after reload")
+                return jsonify({
+                    'success': False,
+                    'error': f'Генератор {generator_type} не найден'
+                }), 404
+
+        logger.info(f"Found generator: {generator.__class__.__name__}")
 
         # Получаем поля от генератора
         fields = generator.get_form_fields()
+        logger.info(f"Generator fields: {len(fields)} fields")
 
         return jsonify({
             'success': True,
@@ -204,135 +233,20 @@ def api_get_generator_fields(generator_type):
 
     except Exception as e:
         logger.error(f"Error getting generator fields: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({
             'success': False,
             'error': str(e)
         }), 500
 
-
-
-@dag_generator_bp.route('/api/hot-reload/status')
-def api_hot_reload_status():
-    """API эндпоинт для получения статуса hot-reload"""
-    try:
-        discovery_manager = get_discovery_manager()
-        if discovery_manager:
-            is_active = discovery_manager.is_hot_reload_active()
-            return jsonify({
-                'success': True,
-                'hot_reload_active': is_active,
-                'status': 'active' if is_active else 'inactive'
-            })
-        else:
-            return jsonify({
-                'success': True,
-                'hot_reload_active': False,
-                'status': 'unavailable'
-            })
-    except Exception as e:
-        logger.error(f"Error getting hot reload status: {e}")
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
-
-
-@dag_generator_bp.route('/api/hot-reload/start', methods=['POST'])
-def api_hot_reload_start():
-    """API эндпоинт для запуска hot-reload"""
-    try:
-        discovery_manager = get_discovery_manager()
-        if discovery_manager:
-            success = discovery_manager.start_hot_reload()
-            return jsonify({
-                'success': success,
-                'message': 'Hot-reload запущен' if success else 'Hot-reload уже запущен или недоступен'
-            })
-        else:
-            return jsonify({
-                'success': False,
-                'error': 'Discovery manager недоступен'
-            }), 500
-    except Exception as e:
-        logger.error(f"Error starting hot reload: {e}")
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
-
-
-@dag_generator_bp.route('/api/hot-reload/stop', methods=['POST'])
-def api_hot_reload_stop():
-    """API эндпоинт для остановки hot-reload"""
-    try:
-        discovery_manager = get_discovery_manager()
-        if discovery_manager:
-            success = discovery_manager.stop_hot_reload()
-            return jsonify({
-                'success': success,
-                'message': 'Hot-reload остановлен' if success else 'Hot-reload уже остановлен'
-            })
-        else:
-            return jsonify({
-                'success': False,
-                'error': 'Discovery manager недоступен'
-            }), 500
-    except Exception as e:
-        logger.error(f"Error stopping hot reload: {e}")
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
-
-
-@dag_generator_bp.route('/api/health')
-def api_health_check():
-    """API эндпоинт для проверки здоровья системы"""
-    try:
-        registry = get_registry()
-        discovery_manager = get_discovery_manager()
-
-        return jsonify({
-            'success': True,
-            'status': 'healthy',
-            'generators_count': len(registry),
-            'hot_reload_active': discovery_manager.is_hot_reload_active() if discovery_manager else False,
-            'timestamp': int(time.time()) if 'time' in globals() else None
-        })
-    except Exception as e:
-        logger.error(f"Health check failed: {e}")
-        return jsonify({
-            'success': False,
-            'status': 'unhealthy',
-            'error': str(e)
-        }), 500
-
-
-@dag_generator_bp.route('/form')
-def form():
-    """Страница с формой для настройки генератора"""
-    try:
-        templates, schedules = get_templates_and_schedules()
-        csrf_token = get_csrf_token()
-
-        return render_template(
-            'dag_generator/form.html',
-            templates=templates,
-            schedules=schedules,
-            csrf_token=csrf_token
-        )
-
-    except Exception as e:
-        logger.error(f"Error in form route: {e}")
-        return f"Error loading form: {str(e)}", 500
 
 @dag_generator_bp.route('/preview', methods=['POST'])
 def preview_dag():
-    """Предпросмотр DAG - показывает страницу с кодом"""
+    """Предпросмотр DAG с проверкой генератора"""
     try:
         logger.info(f"=== PREVIEW REQUEST ===")
         
-        # Получаем данные из запроса
         if request.content_type and 'application/json' in request.content_type:
             data = request.get_json()
             generator_type = data.get('generator_type')
@@ -352,8 +266,16 @@ def preview_dag():
             else:
                 return error_msg, 400
 
-        # Получаем генератор
+        # Получаем генератор с попыткой перезагрузки
         generator = get_generator(generator_type)
+        if not generator:
+            logger.warning(f"Generator '{generator_type}' not found for preview, trying reload...")
+            try:
+                safe_manual_reload()
+                generator = get_generator(generator_type)
+            except:
+                pass
+        
         if not generator:
             error_msg = 'Генератор не найден'
             if is_api_request:
@@ -365,7 +287,6 @@ def preview_dag():
         dag_code = generator.generate(form_data)
 
         if is_api_request:
-            # API запрос - возвращаем JSON
             return jsonify({
                 'success': True,
                 'dag_code': dag_code,
@@ -376,22 +297,20 @@ def preview_dag():
                 }
             })
         else:
-            # ============ ВОТ ЗДЕСЬ БЫЛА ПРОБЛЕМА! ============
-            # Веб запрос - показываем страницу предпросмотра
-            # ОБЯЗАТЕЛЬНО передаем csrf_token в шаблон!
             csrf_token = get_csrf_token()
-            
             return render_template(
                 'dag_generator/preview.html',
                 dag_code=dag_code,
                 form_data=form_data,
                 generator_type=generator_type,
                 generator_name=generator.get_display_name(),
-                csrf_token=csrf_token  # ← ЭТО БЫЛО ПРОПУЩЕНО!
+                csrf_token=csrf_token
             )
 
     except Exception as e:
         logger.error(f"Error in preview: {e}")
+        import traceback
+        traceback.print_exc()
         error_msg = f'Ошибка предпросмотра: {str(e)}'
         if is_api_request:
             return jsonify({'success': False, 'error': error_msg}), 500
@@ -401,33 +320,17 @@ def preview_dag():
 
 @dag_generator_bp.route('/generate', methods=['POST'])
 def generate_dag():
-    """Генерация DAG - всегда возвращает JSON"""
+    """Генерация DAG с проверкой генератора"""
     try:
-        # Получаем данные из запроса
         if request.content_type and 'application/json' in request.content_type:
             data = request.get_json()
             generator_type = data.get('generator_type')
             form_data = data.get('form_data', {})
-            
-            # Проверяем CSRF токен для JSON запросов
-            csrf_token = request.headers.get('X-CSRFToken')
-            #if not validate_csrf_token(csrf_token):
-            #    return jsonify({
-            #        'success': False, 
-            #        'error': 'Invalid CSRF token'
-            #    }), 400
         else:
             generator_type = request.form.get('generator_type')
             form_data = dict(request.form)
-            csrf_token = form_data.pop('csrf_token', None)
             form_data.pop('generator_type', None)
-            
-            # Проверяем CSRF токен для form запросов
-            #if not validate_csrf_token(csrf_token):
-            #    return jsonify({
-            #        'success': False, 
-            #        'error': 'Invalid CSRF token'
-            #    }), 400
+            form_data.pop('csrf_token', None)
 
         logger.info(f"Generate request - Generator: {generator_type}")
 
@@ -437,7 +340,16 @@ def generate_dag():
                 'error': 'Не указан тип генератора'
             }), 400
 
+        # Получаем генератор с попыткой перезагрузки
         generator = get_generator(generator_type)
+        if not generator:
+            logger.warning(f"Generator '{generator_type}' not found for generation, trying reload...")
+            try:
+                safe_manual_reload()
+                generator = get_generator(generator_type)
+            except:
+                pass
+        
         if not generator:
             return jsonify({
                 'success': False,
@@ -451,7 +363,6 @@ def generate_dag():
         dag_id = form_data.get('dag_id', 'generated_dag')
         dag_file_path = save_dag_file(dag_id, dag_code)
 
-        # Всегда возвращаем JSON для обработки в JavaScript
         return jsonify({
             'success': True,
             'dag_code': dag_code,
@@ -466,29 +377,9 @@ def generate_dag():
 
     except Exception as e:
         logger.error(f"Error in generate: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({
             'success': False,
             'error': f'Ошибка генерации: {str(e)}'
         }), 500
-
-
-@dag_generator_bp.route('/reload')
-def reload_generators():
-    """Перезагрузка всех генераторов"""
-    try:
-        # Получаем менеджер обнаружения
-        discovery_manager = get_discovery_manager()
-
-        if discovery_manager:
-            # Принудительно перезагружаем все генераторы
-            count = discovery_manager.force_reload_all()
-            flash(f'Перезагружено {count} генераторов', 'success')
-        else:
-            flash('Менеджер обнаружения недоступен', 'warning')
-
-        return redirect(url_for('dag_generator.index'))
-
-    except Exception as e:
-        logger.error(f"Error reloading generators: {e}")
-        flash(f'Ошибка перезагрузки: {str(e)}', 'error')
-        return redirect(url_for('dag_generator.index'))
