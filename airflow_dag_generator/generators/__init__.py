@@ -47,11 +47,6 @@ def initialize_generator_system(force_reload=False):
             registry.clear()
             logger.info("Registry cleared for force reload")
         
-        # Гарантируем наличие встроенных генераторов
-        built_in_success = ensure_built_in_generators()
-        if not built_in_success:
-            logger.warning("Failed to ensure built-in generators")
-        
         # Обнаруживаем и регистрируем внешние генераторы
         discovered_count = 0
         try:
