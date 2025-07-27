@@ -6,6 +6,7 @@
 import threading
 import logging
 
+from airflow_dag_generator.generators.base_generator import BaseGenerator
 from airflow_dag_generator.generators.registry import (
     GeneratorRegistry,
     get_registry,

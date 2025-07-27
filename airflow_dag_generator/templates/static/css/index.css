@@ -1,29 +1,259 @@
-/* Стили для главной страницы генератора DAG'ов */
 
-.bg-gradient-primary {
-    background: linear-gradient(135deg, #007bff, #0056b3);
+/* Стили для главной страницы генератора DAG'ов в стиле Airflow UI */
+
+/* Основные цвета Airflow */
+:root {
+    --airflow-blue: #017cee;
+    --airflow-dark-blue: #0056b3;
+    --airflow-light-blue: #e8f4fd;
+    --airflow-gray: #6c757d;
+    --airflow-light-gray: #f8f9fa;
+    --airflow-dark-gray: #343a40;
+    --airflow-green: #28a745;
+    --airflow-red: #dc3545;
+    --airflow-orange: #fd7e14;
+    --airflow-border: #dee2e6;
 }
 
+/* Выравнивание заголовка по центру */
+.page-title {
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
+.page-title h1 {
+    color: var(--airflow-dark-gray);
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+}
+
+/* Центрирование кнопки перезагрузки генераторов */
+.reload-generators-container {
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
+.btn-reload-generators {
+    background-color: var(--airflow-blue);
+    border-color: var(--airflow-blue);
+    color: white;
+    font-weight: 500;
+    padding: 0.5rem 1.5rem;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+}
+
+.btn-reload-generators:hover {
+    background-color: var(--airflow-dark-blue);
+    border-color: var(--airflow-dark-blue);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Прозрачный фон для описания генератора */
+.generator-info {
+    animation: slideInUp 0.3s ease-out;
+    background: transparent !important;
+    border: 1px solid var(--airflow-border);
+    border-radius: 8px;
+    padding: 1.5rem;
+}
+
+.generator-description {
+    background: transparent !important;
+    border: none !important;
+    padding: 1rem 0;
+}
+
+.info-card {
+    border-left: 4px solid var(--airflow-blue);
+    background: transparent !important;
+    padding: 1rem;
+    border-radius: 0 8px 8px 0;
+}
+
+/* Фон в стиле Airflow */
+.bg-gradient-primary {
+    background: linear-gradient(135deg, var(--airflow-blue), var(--airflow-dark-blue));
+}
+
+/* Навигация в стиле Airflow */
+.navbar-dark.bg-primary {
+    background: var(--airflow-blue) !important;
+    border-bottom: 1px solid var(--airflow-border);
+}
+
+.navbar-brand {
+    font-weight: 600;
+    color: white !important;
+}
+
+/* Карточки в стиле Airflow */
+.card {
+    border: 1px solid var(--airflow-border);
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    transition: box-shadow 0.2s ease;
+}
+
+.card:hover {
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.card-header {
+    background: var(--airflow-light-gray);
+    border-bottom: 1px solid var(--airflow-border);
+    font-weight: 600;
+    color: var(--airflow-dark-gray);
+}
+
+/* Кнопки в стиле Airflow */
+.btn-primary {
+    background-color: var(--airflow-blue);
+    border-color: var(--airflow-blue);
+    font-weight: 500;
+}
+
+.btn-primary:hover {
+    background-color: var(--airflow-dark-blue);
+    border-color: var(--airflow-dark-blue);
+}
+
+.btn-outline-primary {
+    color: var(--airflow-blue);
+    border-color: var(--airflow-blue);
+}
+
+.btn-outline-primary:hover {
+    background-color: var(--airflow-blue);
+    border-color: var(--airflow-blue);
+}
+
+.btn-success {
+    background-color: var(--airflow-green);
+    border-color: var(--airflow-green);
+}
+
+.btn-danger {
+    background-color: var(--airflow-red);
+    border-color: var(--airflow-red);
+}
+
+/* Формы в стиле Airflow */
+.form-control {
+    border: 1px solid var(--airflow-border);
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+.form-control:focus {
+    border-color: var(--airflow-blue);
+    box-shadow: 0 0 0 0.2rem rgba(1, 124, 238, 0.25);
+}
+
+.form-label {
+    font-weight: 500;
+    color: var(--airflow-dark-gray);
+    margin-bottom: 0.5rem;
+}
+
+.form-select {
+    border: 1px solid var(--airflow-border);
+    border-radius: 4px;
+}
+
+.form-select:focus {
+    border-color: var(--airflow-blue);
+    box-shadow: 0 0 0 0.2rem rgba(1, 124, 238, 0.25);
+}
+
+/* Алерты в стиле Airflow */
+.alert {
+    border-radius: 6px;
+    border: none;
+    font-size: 14px;
+}
+
+.alert-success {
+    background-color: #d4edda;
+    color: #155724;
+    border-left: 4px solid var(--airflow-green);
+}
+
+.alert-danger {
+    background-color: #f8d7da;
+    color: #721c24;
+    border-left: 4px solid var(--airflow-red);
+}
+
+.alert-info {
+    background-color: var(--airflow-light-blue);
+    color: #0c5460;
+    border-left: 4px solid var(--airflow-blue);
+}
+
+.alert-warning {
+    background-color: #fff3cd;
+    color: #856404;
+    border-left: 4px solid var(--airflow-orange);
+}
+
+/* Специфичные стили для генератора */
 .generator-selection {
     position: relative;
 }
 
-.generator-info {
-    animation: slideInUp 0.3s ease-out;
-}
-
 .empty-state {
     transition: all 0.3s ease;
+    color: var(--airflow-gray);
+    text-align: center;
+    padding: 3rem 1rem;
 }
 
-.info-card {
-    border-left: 4px solid #007bff;
+/* Таблицы в стиле Airflow */
+.table {
+    border-collapse: separate;
+    border-spacing: 0;
+}
+
+.table thead th {
+    background: var(--airflow-light-gray);
+    border-bottom: 2px solid var(--airflow-border);
+    font-weight: 600;
+    color: var(--airflow-dark-gray);
+}
+
+.table tbody td {
+    border-bottom: 1px solid var(--airflow-border);
+    vertical-align: middle;
+}
+
+.table-striped tbody tr:nth-of-type(odd) {
+    background-color: rgba(1, 124, 238, 0.05);
+}
+
+/* Бейджи в стиле Airflow */
+.badge {
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.badge-primary {
+    background-color: var(--airflow-blue);
+}
+
+.badge-success {
+    background-color: var(--airflow-green);
+}
+
+.badge-danger {
+    background-color: var(--airflow-red);
 }
 
 /* Контейнер для уведомлений */
 #notifications-container {
     position: fixed;
-    top: 20px;
+    top: 80px;
     right: 20px;
     z-index: 9999;
     max-width: 400px;
@@ -32,6 +262,17 @@
 #notifications-container .alert {
     margin-bottom: 10px;
     animation: slideInRight 0.3s ease-out;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* Типографика в стиле Airflow */
+h1, h2, h3, h4, h5, h6 {
+    color: var(--airflow-dark-gray);
+    font-weight: 600;
+}
+
+.text-muted {
+    color: var(--airflow-gray) !important;
 }
 
 /* Анимации */
@@ -72,11 +313,84 @@
     100% { transform: rotate(360deg); }
 }
 
+/* Иконки в стиле Airflow */
+.fas, .far {
+    color: var(--airflow-blue);
+}
+
+.text-success .fas {
+    color: var(--airflow-green);
+}
+
+.text-danger .fas {
+    color: var(--airflow-red);
+}
+
+/* Хлебные крошки в стиле Airflow */
+.breadcrumb {
+    background: transparent;
+    padding: 0;
+    margin-bottom: 1rem;
+}
+
+.breadcrumb-item a {
+    color: var(--airflow-blue);
+    text-decoration: none;
+}
+
+.breadcrumb-item.active {
+    color: var(--airflow-gray);
+}
+
+/* Футер в стиле Airflow */
+footer {
+    background: var(--airflow-light-gray) !important;
+    border-top: 1px solid var(--airflow-border);
+    color: var(--airflow-gray);
+}
+
 /* Адаптивность */
 @media (max-width: 768px) {
     #notifications-container {
         left: 10px;
         right: 10px;
         max-width: none;
+        top: 70px;
     }
+    
+    .container-fluid {
+        padding-left: 15px;
+        padding-right: 15px;
+    }
+    
+    .page-title h1 {
+        font-size: 1.75rem;
+    }
+}
+
+/* Кастомные компоненты в стиле Airflow */
+.airflow-panel {
+    background: white;
+    border: 1px solid var(--airflow-border);
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.airflow-panel-header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 1rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid var(--airflow-border);
+}
+
+.airflow-panel-header h5 {
+    margin: 0;
+    color: var(--airflow-dark-gray);
+}
+
+.airflow-panel-header .fas {
+    margin-right: 0.5rem;
+    font-size: 1.1em;
 }

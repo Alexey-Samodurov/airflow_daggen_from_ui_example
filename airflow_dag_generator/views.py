@@ -1,16 +1,14 @@
 import logging
-import os
-import re
-import time
 
 from flask import (
-    render_template, request, redirect, url_for, flash, jsonify,
-    session, Blueprint
+    render_template, request, jsonify,
+    Blueprint
 )
 
 from airflow_dag_generator.generators import (
     get_registry, list_generators, get_generator, safe_manual_reload
 )
+from airflow_dag_generator.utils.utils import get_csrf_token, get_templates_and_schedules, save_dag_file
 
 # Создаем Blueprint для веб-интерфейса
 dag_generator_bp = Blueprint(
@@ -22,71 +20,6 @@ dag_generator_bp = Blueprint(
 )
 
 logger = logging.getLogger(__name__)
-
-
-def get_csrf_token():
-    """Получаем CSRF токен из Flask-WTF - ПРОСТАЯ ВЕРСИЯ"""
-    try:
-        from flask_wtf.csrf import generate_csrf
-        return generate_csrf()
-    except:
-        try:
-            from flask import g
-            if hasattr(g, 'csrf_token'):
-                return g.csrf_token
-        except:
-            pass
-    return ""
-
-
-def validate_dag_id(dag_id):
-    """Простая валидация DAG ID"""
-    if not dag_id:
-        return False
-    pattern = r'^[a-zA-Z][a-zA-Z0-9_]*$'
-    return bool(re.match(pattern, dag_id))
-
-
-def save_dag_file(dag_id, dag_code):
-    """Сохраняет DAG файл в папку dags"""
-    try:
-        dags_folder = os.environ.get('AIRFLOW__CORE__DAGS_FOLDER', '/opt/airflow/dags')
-        filename = f"{dag_id}.py"
-        file_path = os.path.join(dags_folder, filename)
-        os.makedirs(dags_folder, exist_ok=True)
-        
-        with open(file_path, 'w', encoding='utf-8') as f:
-            f.write(dag_code)
-        
-        logger.info(f"DAG file saved: {file_path}")
-        return file_path
-    except Exception as e:
-        logger.error(f"Error saving DAG file: {e}")
-        raise
-
-
-def get_templates_and_schedules():
-    """Возвращает доступные шаблоны и расписания"""
-    try:
-        generators_list = list_generators()
-        templates = {}
-        for generator in generators_list:
-            templates[generator['name']] = generator['display_name']
-
-        schedules = [
-            {'value': '@once', 'text': 'Один раз'},
-            {'value': '@daily', 'text': 'Ежедневно'},
-            {'value': '@hourly', 'text': 'Каждый час'},
-            {'value': '@weekly', 'text': 'Еженедельно'},
-            {'value': '@monthly', 'text': 'Ежемесячно'},
-            {'value': '0 */6 * * *', 'text': 'Каждые 6 часов'},
-            {'value': None, 'text': 'Без расписания'}
-        ]
-
-        return templates, schedules
-    except Exception as e:
-        logger.error(f"Error getting templates and schedules: {e}")
-        return {}, []
 
 
 @dag_generator_bp.route('/')
