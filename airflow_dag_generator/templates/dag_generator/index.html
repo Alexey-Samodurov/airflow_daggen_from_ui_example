@@ -7,25 +7,17 @@
 {% endblock %}
 
 {% block content %}
-<!-- Заголовок с единственной кнопкой перезагрузки -->
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h2>Генератор DAG'ов</h2>
-    <button id="reload-generators-btn" class="btn btn-primary">
-        <i class="fas fa-sync-alt"></i> Перезагрузить генераторы
-    </button>
-</div>
-
 <!-- Основное содержимое -->
 <div class="row">
     <div class="col-lg-10 mx-auto">
         <!-- Главная карточка с выбором генератора -->
         <div class="card shadow-sm mb-4">
-            <div class="card-header bg-gradient-primary text-white">
+            <div class="card-header">
                 <div class="d-flex align-items-center">
                     <i class="fas fa-magic fa-2x me-3"></i>
                     <div>
                         <h4 class="mb-1">Создать новый DAG</h4>
-                        <p class="mb-0 opacity-90">Выберите подходящий шаблон для генерации DAG</p>
+                        <p class="mb-0 text-dark">Выберите подходящий шаблон для генерации DAG</p>
                     </div>
                 </div>
             </div>
@@ -49,7 +41,15 @@
                         </div>
                         <div class="col-md-4">
                             <div class="generator-stats mt-4 mt-md-0">
-                                <div class="d-flex align-items-center justify-content-center h-100">
+                                <!-- Кнопка перезагрузки генераторов -->
+                                <div class="text-center mb-3">
+                                    <button id="reload-generators-btn" class="btn btn-primary">
+                                        <i class="fas fa-sync-alt"></i> Перезагрузить генераторы
+                                    </button>
+                                </div>
+                                
+                                <!-- Счетчик генераторов -->
+                                <div class="d-flex align-items-center justify-content-center">
                                     <div class="text-center">
                                         <div class="stat-number h4 mb-1" id="generators-count">-</div>
                                         <div class="stat-label text-muted small">Доступно генераторов</div>
@@ -66,7 +66,7 @@
                         <div class="col-md-8">
                             <div class="info-card p-3 bg-light rounded">
                                 <h6 class="text-primary mb-2" id="generator-display-name">-</h6>
-                                <p class="mb-0 text-muted" id="generator-description">-</p>
+                                <p class="mb-0 text-dark" id="generator-description">-</p>
                             </div>
                         </div>
                         <div class="col-md-4">

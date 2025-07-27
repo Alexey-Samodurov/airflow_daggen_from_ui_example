@@ -77,14 +77,14 @@ class DynamicFormBuilder {
         const header = document.createElement('div');
         header.className = 'form-header mb-4';
         header.innerHTML = `
-            <div class="d-flex align-items-center">
-                <i class="fas fa-magic fa-2x me-3 text-primary"></i>
-                <div>
-                    <h3 class="mb-1">${generatorData.display_name}</h3>
-                    <p class="mb-0 text-muted">${generatorData.description}</p>
-                </div>
+        <div class="d-flex align-items-center">
+            <i class="fas fa-magic fa-2x me-3 text-primary"></i>
+            <div>
+                <h3 class="mb-1">${generatorData.display_name}</h3>
+                <p class="mb-0 text-dark">${generatorData.description}</p>
             </div>
-        `;
+        </div>
+    `;
         return header;
     }
 
