@@ -1,132 +1,175 @@
-{% extends "dag_generator/base.html" %}
-
-{% block title %}DAG Generator - Главная{% endblock %}
-
-{% block extra_css %}
-    <link rel="stylesheet" href="{{ url_for('dag_generator.static', filename='css/index.css') }}">
-{% endblock %}
-
-{% block content %}
-<!-- Основное содержимое -->
-<div class="row">
-    <div class="col-lg-10 mx-auto">
-        <!-- Главная карточка с выбором генератора -->
-        <div class="card shadow-sm mb-4">
-            <div class="card-header">
-                <div class="d-flex align-items-center">
-                    <i class="fas fa-magic fa-2x me-3"></i>
-                    <div>
-                        <h4 class="mb-1">Создать новый DAG</h4>
-                        <p class="mb-0 text-dark">Выберите подходящий шаблон для генерации DAG</p>
-                    </div>
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DAG Generator</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="{{ url_for('dag_generator.static', filename='css/index.css') }}" rel="stylesheet">
+</head>
+<body>
+    <div class="container-fluid">
+        <!-- Заголовок -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="main-header text-center py-4">
+                    <h1><i class="fas fa-magic me-3"></i>DAG Generator</h1>
+                    <p class="text-muted">Создание и редактирование DAG'ов Airflow</p>
                 </div>
             </div>
-            
-            <div class="card-body">
-                <!-- Выбор типа генератора -->
-                <div class="generator-selection mb-4">
-                    <div class="row">
-                        <div class="col-md-8">
-                            <label for="generator-select" class="form-label fw-bold">
-                                <i class="fas fa-layer-group text-primary me-2"></i>
-                                Тип генератора
-                            </label>
-                            <select id="generator-select" class="form-select form-select-lg">
-                                <option value="">Выберите тип генератора...</option>
-                            </select>
-                            <div class="form-text">
-                                <i class="fas fa-info-circle me-1"></i>
-                                Каждый генератор предоставляет специфический набор настроек для создания DAG
+        </div>
+
+        <div class="row">
+            <!-- Левая панель - Создание нового DAG -->
+            <div class="col-md-6" id="create-panel">
+                <div class="panel-container">
+                    <div class="panel-header">
+                        <h3><i class="fas fa-plus-circle me-2"></i>Создать новый DAG</h3>
+                        <p class="text-muted">Выберите шаблон и настройте параметры</p>
+                    </div>
+
+                    <div class="panel-content">
+                        <form id="dag-form" method="POST">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            
+                            <!-- Выбор генератора -->
+                            <div class="mb-4">
+                                <label for="generator-select" class="form-label">
+                                    <i class="fas fa-cogs me-2"></i>Тип генератора
+                                </label>
+                                <select class="form-select" id="generator-select" name="generator_type" required>
+                                    <option value="">-- Выберите генератор --</option>
+                                    {% for name, generator in generators.items() %}
+                                    <option value="{{ name }}">{{ generator.get_display_name() }}</option>
+                                    {% endfor %}
+                                </select>
+                                <div class="form-text">
+                                    <i class="fas fa-info-circle me-1"></i>
+                                    Каждый генератор создает DAG с определенным функционалом
+                                </div>
                             </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="generator-stats mt-4 mt-md-0">
-                                <!-- Кнопка перезагрузки генераторов -->
-                                <div class="text-center mb-3">
-                                    <button id="reload-generators-btn" class="btn btn-primary">
-                                        <i class="fas fa-sync-alt"></i> Перезагрузить генераторы
+
+                            <!-- Динамическая форма -->
+                            <div id="loading-spinner" class="text-center py-5 d-none">
+                                <div class="spinner-border text-primary" role="status">
+                                    <span class="visually-hidden">Загрузка...</span>
+                                </div>
+                                <p class="mt-3 text-muted">Загрузка формы...</p>
+                            </div>
+
+                            <div id="dynamic-form-container">
+                                <div id="empty-state" class="empty-state text-center py-5">
+                                    <div class="empty-icon mb-3">
+                                        <i class="fas fa-arrow-up fa-4x text-muted opacity-50"></i>
+                                    </div>
+                                    <h5 class="text-muted mb-2">Выберите тип генератора</h5>
+                                    <p class="text-muted mb-0">
+                                        Для настройки параметров DAG выберите подходящий генератор из списка выше
+                                    </p>
+                                </div>
+                            </div>
+
+                            <!-- Кнопки действий -->
+                            <div id="form-actions" class="mt-4 d-none">
+                                <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                                    <button type="button" class="btn btn-outline-secondary me-md-2" id="preview-btn">
+                                        <i class="fas fa-eye me-2"></i>Предпросмотр
+                                    </button>
+                                    <button type="submit" class="btn btn-success">
+                                        <i class="fas fa-download me-2"></i>Создать DAG
                                     </button>
                                 </div>
-                                
-                                <!-- Счетчик генераторов -->
-                                <div class="d-flex align-items-center justify-content-center">
-                                    <div class="text-center">
-                                        <div class="stat-number h4 mb-1" id="generators-count">-</div>
-                                        <div class="stat-label text-muted small">Доступно генераторов</div>
-                                    </div>
-                                </div>
                             </div>
-                        </div>
+                        </form>
                     </div>
                 </div>
+            </div>
 
-                <!-- Информация о выбранном генераторе -->
-                <div id="generator-info" class="generator-info d-none mb-4">
-                    <div class="row">
-                        <div class="col-md-8">
-                            <div class="info-card p-3 bg-light rounded">
-                                <h6 class="text-primary mb-2" id="generator-display-name">-</h6>
-                                <p class="mb-0 text-dark" id="generator-description">-</p>
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="info-stats">
-                                <div class="d-flex justify-content-between mb-2">
-                                    <span class="text-muted">Обязательных полей:</span>
-                                    <span class="badge bg-primary" id="required-fields-count">0</span>
-                                </div>
-                                <div class="d-flex justify-content-between">
-                                    <span class="text-muted">Дополнительных полей:</span>
-                                    <span class="badge bg-secondary" id="optional-fields-count">0</span>
-                                </div>
-                            </div>
-                        </div>
+            <!-- Правая панель - Поиск и редактирование -->
+            <div class="col-md-6" id="edit-panel">
+                <div class="panel-container">
+                    <div class="panel-header">
+                        <h3 id="edit-panel-title">
+                            <i class="fas fa-search me-2"></i>Найти существующий DAG
+                        </h3>
+                        <p class="text-muted">Введите ID DAG'а для поиска и редактирования</p>
                     </div>
-                </div>
 
-                <!-- Загрузчик -->
-                <div id="loading-spinner" class="text-center d-none py-4">
-                    <div class="spinner-border text-primary" role="status">
-                        <span class="visually-hidden">Загрузка...</span>
-                    </div>
-                    <p class="mt-3 text-muted">Загрузка конфигурации генератора...</p>
-                </div>
-
-                <!-- Контейнер для динамической формы -->
-                <div id="dynamic-form-container">
-                    <div id="empty-state" class="empty-state text-center py-5">
-                        <div class="empty-icon mb-3">
-                            <i class="fas fa-arrow-up fa-4x text-muted opacity-50"></i>
+                    <div class="panel-content">
+                        <!-- Поиск DAG'ов -->
+                        <div class="search-container mb-4">
+                            <div class="position-relative">
+                                <input type="text" 
+                                       class="form-control form-control-lg" 
+                                       id="dag-search-input" 
+                                       placeholder="Начните вводить ID DAG'а..." 
+                                       autocomplete="off">
+                                <div class="search-icon">
+                                    <i class="fas fa-search text-muted"></i>
+                                </div>
+                            </div>
+                            <div id="search-suggestions" class="suggestions-container"></div>
                         </div>
-                        <h5 class="text-muted mb-2">Выберите тип генератора</h5>
-                        <p class="text-muted mb-0">
-                            Для настройки параметров DAG выберите подходящий генератор из списка выше
-                        </p>
+
+                        <!-- Информация о режиме редактирования -->
+                        <div id="edit-mode-info" class="alert alert-info d-none">
+                            <h6><i class="fas fa-edit me-2"></i>Режим редактирования</h6>
+                            <p class="mb-2">Вы редактируете существующий DAG. Измените нужные параметры и сохраните.</p>
+                            <button type="button" class="btn btn-outline-info btn-sm" onclick="searchManager.switchToCreateMode()">
+                                <i class="fas fa-arrow-left me-2"></i>Вернуться к созданию
+                            </button>
+                        </div>
+
+                        <!-- Скрытое поле для хранения оригинального ID -->
+                        <input type="hidden" id="original-dag-id" name="original_dag_id" form="dag-form">
+
+                        <!-- Информация по умолчанию -->
+                        <div id="search-help" class="text-center py-5">
+                            <div class="mb-3">
+                                <i class="fas fa-search fa-4x text-muted opacity-50"></i>
+                            </div>
+                            <h5 class="text-muted mb-2">Поиск DAG'ов</h5>
+                            <p class="text-muted">
+                                Введите часть ID DAG'а в поле поиска выше, чтобы найти существующие DAG'и для редактирования.
+                            </p>
+                            <small class="text-muted">
+                                Поиск работает только для DAG'ов, созданных через этот генератор.
+                            </small>
+                        </div>
+
+                        <!-- Кнопка переключения панелей (на мобильных) -->
+                        <div class="d-md-none text-center mt-4">
+                            <button type="button" class="btn btn-outline-primary" onclick="toggleMobilePanels()">
+                                <i class="fas fa-exchange-alt me-2"></i>Переключить панель
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
-
-        <!-- Результат генерации -->
-        <div id="result-container" class="d-none">
-            <!-- Контент будет добавлен динамически -->
-        </div>
     </div>
-</div>
 
-<!-- Контейнер для уведомлений -->
-<div id="notifications-container"></div>
-
-<!-- Скрытые данные для JavaScript -->
-<script type="application/json" id="initial-data">
-{
-    "csrf_token": "{{ csrf_token }}",
-    "templates": {{ templates|tojson }},
-    "schedules": {{ schedules|tojson }}
-}
-</script>
-{% endblock %}
-
-{% block extra_js %}
+    <!-- Подключаем скрипты -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="{{ url_for('dag_generator.static', filename='js/dynamic-form-builder.js') }}"></script>
+    <script src="{{ url_for('dag_generator.static', filename='js/search-manager.js') }}"></script>
     <script src="{{ url_for('dag_generator.static', filename='js/index.js') }}"></script>
-{% endblock %}
+
+    <script>
+        // Функция для мобильного переключения панелей
+        function toggleMobilePanels() {
+            const createPanel = document.getElementById('create-panel');
+            const editPanel = document.getElementById('edit-panel');
+            
+            if (createPanel.classList.contains('d-md-block')) {
+                createPanel.classList.add('d-none', 'd-md-block');
+                editPanel.classList.remove('d-none');
+            } else {
+                createPanel.classList.remove('d-none');
+                editPanel.classList.add('d-none', 'd-md-block');
+            }
+        }
+    </script>
+</body>
+</html>

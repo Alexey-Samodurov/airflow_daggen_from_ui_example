@@ -108,6 +108,22 @@ def safe_manual_reload():
         raise
 
 
+def get_all_generators():
+    """Возвращает словарь всех доступных генераторов"""
+    registry = get_registry()
+    generators_dict = {}
+    
+    for name in registry.list_all():
+        try:
+            generator = registry.get(name)
+            if generator:
+                generators_dict[name] = generator
+        except Exception as e:
+            logger.error(f"Error getting generator {name}: {e}")
+    
+    return generators_dict
+
+
 # Инициализируем при импорте модуля (но только один раз)
 try:
     import threading
@@ -129,6 +145,7 @@ __all__ = [
     'get_registry',
     'register_generator',
     'get_generator',
+    'get_all_generators',  # ДОБАВЛЕНО!
     'list_generators',
 
     # Функции обнаружения и hot-reload

@@ -11,6 +11,7 @@ class HelloWorldGenerator(BaseGenerator):
     
     def __init__(self):
         super().__init__(generator_name="hello_world")
+        self.template_version = "1.0.0"
     
     def get_display_name(self) -> str:
         return "Hello World DAG"
@@ -105,6 +106,15 @@ class HelloWorldGenerator(BaseGenerator):
                 'required': False,
                 'default': 1,
                 'min': 0,
+                'max': 10
+            },
+            {
+                'name': 'retry_delay_minutes',
+                'type': 'number',
+                'label': 'retry_delay_minutes',
+                'required': False,
+                'default': 1,
+                'min': 1,
                 'max': 10
             }
         ]

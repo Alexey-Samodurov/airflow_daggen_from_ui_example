@@ -4,21 +4,44 @@
 
 // Глобальные переменные
 let formBuilder = null;
+let searchManager = null;
 
 /**
  * Инициализация при загрузке страницы
  */
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('Initializing DAG Generator...');
+    console.log('=== ИНИЦИАЛИЗАЦИЯ СТРАНИЦЫ ГЕНЕРАТОРОВ ===');
     
-    // Инициализируем форм-билдер
-    formBuilder = new DynamicFormBuilder('dynamic-form-container');
+    // Инициализируем менеджеры
+    try {
+        formBuilder = new DynamicFormBuilder('dynamic-form-container');
+        console.log('FormBuilder инициализирован');
+    } catch (e) {
+        console.error('Ошибка инициализации FormBuilder:', e);
+    }
     
-    // Загружаем список генераторов
-    updateGeneratorsList();
+    try {
+        searchManager = new SearchManager();
+        console.log('SearchManager инициализирован');
+    } catch (e) {
+        console.error('Ошибка инициализации SearchManager:', e);
+    }
     
     // Настраиваем обработчики событий
     setupEventListeners();
+    console.log('Generator select handler set');
+    
+    // Добавляем кнопку перезагрузки если её нет
+    addReloadButton();
+    
+    // Загружаем список генераторов
+    updateGeneratorsList().then(count => {
+        console.log(`Initial load: ${count} generators from API`);
+    }).catch(error => {
+        console.error('Error during initial load:', error);
+    });
+    
+    console.log('Инициализация завершена');
 });
 
 /**
@@ -41,32 +64,39 @@ function setupEventListeners() {
     }
 }
 
-// Глобальные данные
-window.GeneratorPageData = {
-    templates: {},
-    csrf_token: '',
-    currentGenerator: null,
-    currentFormFields: null
-};
-
 /**
- * Инициализация данных из шаблона
+ * Добавляет кнопку перезагрузки если её нет
  */
-function initializePageData() {
-    try {
-        const initialDataElement = document.getElementById('initial-data');
-        if (initialDataElement) {
-            const data = JSON.parse(initialDataElement.textContent);
-            window.GeneratorPageData = {
-                templates: data.templates || {},
-                csrf_token: data.csrf_token || '',
-                currentGenerator: null,
-                currentFormFields: null
-            };
-            console.log('Page data initialized:', window.GeneratorPageData);
-        }
-    } catch (error) {
-        console.error('Error initializing page data:', error);
+function addReloadButton() {
+    const generatorSelect = document.getElementById('generator-select');
+    if (!generatorSelect) return;
+    
+    const existingBtn = document.getElementById('reload-generators-btn');
+    if (existingBtn) return; // Кнопка уже есть
+    
+    // Создаем кнопку перезагрузки
+    const reloadBtn = document.createElement('button');
+    reloadBtn.id = 'reload-generators-btn';
+    reloadBtn.type = 'button';
+    reloadBtn.className = 'btn btn-outline-secondary btn-sm ms-2';
+    reloadBtn.innerHTML = '<i class="fas fa-sync-alt me-1"></i> Обновить';
+    reloadBtn.title = 'Перезагрузить список генераторов';
+    
+    // Добавляем обработчик
+    reloadBtn.addEventListener('click', reloadGenerators);
+    
+    // Вставляем кнопку рядом с селектом
+    const formGroup = generatorSelect.closest('.mb-4');
+    if (formGroup) {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'd-flex align-items-center';
+        
+        generatorSelect.parentNode.insertBefore(wrapper, generatorSelect);
+        wrapper.appendChild(generatorSelect);
+        wrapper.appendChild(reloadBtn);
+        
+        // Добавляем flex-grow к селекту
+        generatorSelect.classList.add('flex-grow-1');
     }
 }
 
@@ -91,7 +121,12 @@ function updateGeneratorsList() {
     console.log('Updating generators list...');
     
     return fetch('/dag-generator/api/generators')
-        .then(response => response.json())
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            return response.json();
+        })
         .then(data => {
             if (data.status === 'success' && data.generators) {
                 const select = document.getElementById('generator-select');
@@ -123,12 +158,6 @@ function updateGeneratorsList() {
                     handleGeneratorSelection(currentValue);
                 }
 
-                // Обновляем счетчик
-                const countElement = document.getElementById('generators-count');
-                if (countElement) {
-                    countElement.textContent = data.generators.length;
-                }
-
                 console.log(`Updated generators list: ${data.generators.length} generators`);
                 return data.generators.length;
             } else {
@@ -138,6 +167,7 @@ function updateGeneratorsList() {
         .catch(error => {
             console.error('Error updating generators list:', error);
             showNotification('error', `Ошибка загрузки генераторов: ${error.message}`);
+            return 0;
         });
 }
 
@@ -167,7 +197,12 @@ function reloadGenerators() {
             'X-CSRFToken': getCsrfToken()
         }
     })
-    .then(response => response.json())
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        return response.json();
+    })
     .then(data => {
         console.log('Reload response:', data);
         
@@ -200,381 +235,93 @@ function reloadGenerators() {
 function handleGeneratorSelection(generatorType) {
     console.log('Generator selected:', generatorType);
     
-    const infoContainer = document.getElementById('generator-info');
     const dynamicFormContainer = document.getElementById('dynamic-form-container');
     const emptyState = document.getElementById('empty-state');
     const loadingSpinner = document.getElementById('loading-spinner');
+    const formActions = document.getElementById('form-actions');
     
     if (!generatorType) {
-        // Скрываем информацию и форму
-        if (infoContainer) infoContainer.classList.add('d-none');
-        if (dynamicFormContainer) {
+        // Скрываем форму и показываем пустое состояние
+        if (dynamicFormContainer && emptyState) {
             dynamicFormContainer.innerHTML = '';
-            if (emptyState) {
-                dynamicFormContainer.appendChild(emptyState);
-                emptyState.classList.remove('d-none');
-            }
+            dynamicFormContainer.appendChild(emptyState);
+            emptyState.classList.remove('d-none');
         }
-        
-        window.GeneratorPageData.currentGenerator = null;
-        window.GeneratorPageData.currentFormFields = null;
+        if (formActions) formActions.classList.add('d-none');
         return;
     }
 
-    // Показываем загрузку
-    if (loadingSpinner) loadingSpinner.classList.remove('d-none');
-    if (emptyState) emptyState.classList.add('d-none');
-    if (infoContainer) infoContainer.classList.add('d-none');
-
-    // Загружаем поля генератора
-    fetch(`/dag-generator/api/generators/${generatorType}/fields`)
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                // Обновляем информацию о генераторе
-                updateGeneratorInfo(data);
-                
-                // Строим динамическую форму
-                buildDynamicForm(data.fields);
-                
-                // Сохраняем данные генератора
-                window.GeneratorPageData.currentGenerator = generatorType;
-                window.GeneratorPageData.currentFormFields = data.fields;
-                
-                console.log('Generator fields loaded:', data.fields.length, 'fields');
-            } else {
-                throw new Error(data.error || 'Failed to load generator fields');
-            }
-        })
-        .catch(error => {
-            console.error('Error loading generator fields:', error);
-            showNotification('error', `Ошибка загрузки полей генератора: ${error.message}`);
-            
-            // Показываем пустое состояние при ошибке
-            if (dynamicFormContainer && emptyState) {
-                dynamicFormContainer.innerHTML = '';
-                dynamicFormContainer.appendChild(emptyState);
-                emptyState.classList.remove('d-none');
-            }
-        })
-        .finally(() => {
-            // Скрываем загрузку
-            if (loadingSpinner) loadingSpinner.classList.add('d-none');
-        });
-}
-
-/**
- * Обновление информации о генераторе
- */
-function updateGeneratorInfo(data) {
-    const infoContainer = document.getElementById('generator-info');
-    const displayNameEl = document.getElementById('generator-display-name');
-    const descriptionEl = document.getElementById('generator-description');
-    const requiredCountEl = document.getElementById('required-fields-count');
-    const optionalCountEl = document.getElementById('optional-fields-count');
-    
-    if (displayNameEl && descriptionEl && data) {
-        displayNameEl.textContent = data.display_name || 'Неизвестный генератор';
-        descriptionEl.textContent = data.description || 'Описание недоступно';
+    // Используем встроенный метод DynamicFormBuilder
+    if (formBuilder) {
+        formBuilder.loadGeneratorForm(generatorType);
         
-        // Подсчитываем поля
-        const requiredFields = data.fields ? data.fields.filter(f => f.required).length : 0;
-        const optionalFields = data.fields ? data.fields.filter(f => !f.required).length : 0;
+        // Показываем кнопки действий
+        if (formActions) formActions.classList.remove('d-none');
         
-        if (requiredCountEl) requiredCountEl.textContent = requiredFields;
-        if (optionalCountEl) optionalCountEl.textContent = optionalFields;
-        
-        if (infoContainer) {
-            infoContainer.classList.remove('d-none');
-        }
+        // Настраиваем обработчики кнопок формы
+        setupFormButtons(generatorType);
+    } else {
+        console.error('FormBuilder not available');
+        showNotification('error', 'FormBuilder не инициализирован');
     }
 }
 
 /**
- * Построение динамической формы
+ * Настройка обработчиков кнопок формы
  */
-function buildDynamicForm(fields) {
-    const container = document.getElementById('dynamic-form-container');
-    if (!container || !fields || fields.length === 0) {
-        console.warn('Cannot build form: container or fields missing');
-        return;
-    }
-
-    // Очищаем контейнер
-    container.innerHTML = '';
-
-    // Создаем форму
-    const form = document.createElement('form');
-    form.id = 'generator-form';
-    form.className = 'needs-validation';
-    form.noValidate = true;
-
-    // Добавляем поля
-    fields.forEach(field => {
-        const fieldElement = createFormField(field);
-        if (fieldElement) {
-            form.appendChild(fieldElement);
-        }
-    });
-
-    // Добавляем кнопки действий
-    const actionsDiv = document.createElement('div');
-    actionsDiv.className = 'form-actions mt-4 pt-4 border-top';
-    actionsDiv.innerHTML = `
-        <div class="d-flex gap-3 justify-content-center">
-            <button type="button" id="preview-btn" class="btn btn-outline-primary btn-lg">
-                <i class="fas fa-eye me-2"></i>
-                Предпросмотр
-            </button>
-            <button type="button" id="generate-btn" class="btn btn-success btn-lg">
-                <i class="fas fa-magic me-2"></i>
-                Создать DAG
-            </button>
-        </div>
-    `;
-    form.appendChild(actionsDiv);
-
-    // Добавляем форму в контейнер
-    container.appendChild(form);
-
-    // Настраиваем обработчики кнопок
-    setupFormActions();
-}
-
-/**
- * Обработка выбора генератора
- */
-function handleGeneratorSelection(generatorType) {
-    console.log('Generator selected:', generatorType);
-    
-    const infoContainer = document.getElementById('generator-info');
-    
-    if (!generatorType) {
-        // Скрываем информацию и показываем пустое состояние
-        if (infoContainer) infoContainer.classList.add('d-none');
-        formBuilder.loadGeneratorForm(null);
-        return;
-    }
-
-    // Показываем информацию о генераторе
-    updateGeneratorInfo(generatorType);
-    
-    // Загружаем форму через FormBuilder
-    formBuilder.loadGeneratorForm(generatorType);
-}
-
-/**
- * Обновление информации о генераторе
- */
-function updateGeneratorInfo(generatorType) {
-    // Получаем информацию о генераторе
-    fetch(`/dag-generator/api/generators/${generatorType}/info`)
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                const infoContainer = document.getElementById('generator-info');
-                const displayNameEl = document.getElementById('generator-display-name');
-                const descriptionEl = document.getElementById('generator-description');
-                const requiredCountEl = document.getElementById('required-fields-count');
-                const optionalCountEl = document.getElementById('optional-fields-count');
-                
-                if (displayNameEl && descriptionEl) {
-                    displayNameEl.textContent = data.display_name || 'Неизвестный генератор';
-                    descriptionEl.textContent = data.description || 'Описание недоступно';
-                    
-                    // Подсчитываем поля из required_fields и optional_fields
-                    const requiredFields = data.required_fields ? data.required_fields.length : 0;
-                    const optionalFields = data.optional_fields ? Object.keys(data.optional_fields).length : 0;
-                    
-                    if (requiredCountEl) requiredCountEl.textContent = requiredFields;
-                    if (optionalCountEl) optionalCountEl.textContent = optionalFields;
-                    
-                    if (infoContainer) {
-                        infoContainer.classList.remove('d-none');
-                    }
-                }
-            }
-        })
-        .catch(error => {
-            console.error('Error loading generator info:', error);
-        });
-}
-
-/**
- * Создание поля формы
- */
-function createFormField(field) {
-    const fieldDiv = document.createElement('div');
-    fieldDiv.className = 'mb-3';
-
-    const label = document.createElement('label');
-    label.className = 'form-label fw-bold';
-    label.htmlFor = field.name;
-    label.innerHTML = `
-        ${field.label}
-        ${field.required ? '<span class="text-danger">*</span>' : ''}
-    `;
-
-    let input;
-    
-    switch (field.type) {
-        case 'text':
-        case 'email':
-        case 'url':
-            input = document.createElement('input');
-            input.type = field.type;
-            input.className = 'form-control';
-            input.name = field.name;
-            input.id = field.name;
-            input.required = field.required;
-            if (field.default_value) input.value = field.default_value;
-            if (field.placeholder) input.placeholder = field.placeholder;
-            break;
-
-        case 'textarea':
-            input = document.createElement('textarea');
-            input.className = 'form-control';
-            input.name = field.name;
-            input.id = field.name;
-            input.required = field.required;
-            input.rows = field.rows || 3;
-            if (field.default_value) input.value = field.default_value;
-            if (field.placeholder) input.placeholder = field.placeholder;
-            break;
-
-        case 'select':
-            input = document.createElement('select');
-            input.className = 'form-select';
-            input.name = field.name;
-            input.id = field.name;
-            input.required = field.required;
-
-            // Добавляем опции
-            if (field.options) {
-                if (!field.required) {
-                    const emptyOption = document.createElement('option');
-                    emptyOption.value = '';
-                    emptyOption.textContent = 'Выберите...';
-                    input.appendChild(emptyOption);
-                }
-
-                field.options.forEach(option => {
-                    const optionEl = document.createElement('option');
-                    optionEl.value = option.value;
-                    optionEl.textContent = option.label;
-                    if (option.value === field.default_value) {
-                        optionEl.selected = true;
-                    }
-                    input.appendChild(optionEl);
-                });
-            }
-            break;
-
-        case 'checkbox':
-            input = document.createElement('div');
-            input.className = 'form-check';
-            input.innerHTML = `
-                <input class="form-check-input" type="checkbox" name="${field.name}" id="${field.name}" 
-                       ${field.default_value ? 'checked' : ''}>
-                <label class="form-check-label" for="${field.name}">
-                    ${field.label}
-                </label>
-            `;
-            // Для checkbox не нужен отдельный label
-            fieldDiv.appendChild(input);
-            return fieldDiv;
-
-        case 'number':
-            input = document.createElement('input');
-            input.type = 'number';
-            input.className = 'form-control';
-            input.name = field.name;
-            input.id = field.name;
-            input.required = field.required;
-            if (field.default_value !== undefined) input.value = field.default_value;
-            if (field.min !== undefined) input.min = field.min;
-            if (field.max !== undefined) input.max = field.max;
-            if (field.step !== undefined) input.step = field.step;
-            break;
-
-        default:
-            console.warn(`Unknown field type: ${field.type}`);
-            return null;
-    }
-
-    // Добавляем описание поля если есть
-    let helpText = '';
-    if (field.help_text) {
-        helpText = `<div class="form-text">${field.help_text}</div>`;
-    }
-
-    fieldDiv.appendChild(label);
-    fieldDiv.appendChild(input);
-    if (helpText) {
-        fieldDiv.insertAdjacentHTML('beforeend', helpText);
-    }
-
-    return fieldDiv;
-}
-
-/**
- * Настройка обработчиков действий формы
- */
-function setupFormActions() {
+function setupFormButtons(generatorType) {
     const previewBtn = document.getElementById('preview-btn');
-    const generateBtn = document.getElementById('generate-btn');
-
+    const generateBtn = document.querySelector('#form-actions button[type="submit"]');
+    
     if (previewBtn) {
-        previewBtn.addEventListener('click', handlePreview);
+        // Удаляем предыдущие обработчики
+        previewBtn.onclick = null;
+        previewBtn.addEventListener('click', () => {
+            if (formBuilder) {
+                formBuilder.previewDAG();
+            } else {
+                handlePreview(generatorType);
+            }
+        });
     }
-
+    
     if (generateBtn) {
-        generateBtn.addEventListener('click', handleGenerate);
+        // Удаляем предыдущие обработчики
+        generateBtn.onclick = null;
+        generateBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            if (formBuilder) {
+                formBuilder.generateDAG();
+            } else {
+                handleGenerate(generatorType);
+            }
+        });
     }
-}
-
-/**
- * Сбор данных формы
- */
-function collectFormData() {
-    const form = document.getElementById('generator-form');
-    if (!form) return {};
-
-    const formData = new FormData(form);
-    const data = {};
-
-    for (let [key, value] of formData.entries()) {
-        data[key] = value;
-    }
-
-    // Обрабатываем checkbox'ы отдельно
-    const checkboxes = form.querySelectorAll('input[type="checkbox"]');
-    checkboxes.forEach(checkbox => {
-        data[checkbox.name] = checkbox.checked;
-    });
-
-    return data;
 }
 
 /**
  * Обработка предпросмотра
  */
-function handlePreview() {
-    const formData = collectFormData();
-    const generatorType = window.GeneratorPageData.currentGenerator;
-
-    if (!generatorType) {
-        showNotification('error', 'Не выбран генератор');
+function handlePreview(generatorType) {
+    if (!formBuilder) {
+        showNotification('error', 'FormBuilder не инициализирован');
         return;
     }
-
+    
+    const formData = formBuilder.getFormData();
+    
+    if (!formData) {
+        showNotification('error', 'Пожалуйста, заполните все обязательные поля');
+        return;
+    }
+    
+    // Показываем загрузку
     const previewBtn = document.getElementById('preview-btn');
     const originalContent = previewBtn.innerHTML;
-    
-    previewBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Предпросмотр...';
+    previewBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Генерация...';
     previewBtn.disabled = true;
-
-    fetch('/dag-generator/preview', {
+    
+    fetch('/dag-generator/api/preview', { // Добавлен /api/
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -582,20 +329,35 @@ function handlePreview() {
         },
         body: JSON.stringify({
             generator_type: generatorType,
-            form_data: formData
+            config: formData // Изменено с form_data на config
         })
     })
-    .then(response => response.json())
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
+        // Проверяем Content-Type перед парсингом JSON
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+            return response.text().then(text => {
+                console.error('Non-JSON response:', text.substring(0, 500));
+                throw new Error('Сервер вернул не JSON ответ');
+            });
+        }
+        
+        return response.json();
+    })
     .then(data => {
         if (data.success) {
-            showPreviewModal(data.dag_code);
+            showPreviewModal(data.preview_code);
         } else {
-            throw new Error(data.error || 'Preview failed');
+            throw new Error(data.error || 'Preview generation failed');
         }
     })
     .catch(error => {
         console.error('Preview error:', error);
-        showNotification('error', `Ошибка предпросмотра: ${error.message}`);
+        showNotification('error', `Ошибка генерации предпросмотра: ${error.message}`);
     })
     .finally(() => {
         previewBtn.innerHTML = originalContent;
@@ -604,24 +366,28 @@ function handlePreview() {
 }
 
 /**
- * Обработка генерации
+ * Обработка генерации DAG
  */
-function handleGenerate() {
-    const formData = collectFormData();
-    const generatorType = window.GeneratorPageData.currentGenerator;
-
-    if (!generatorType) {
-        showNotification('error', 'Не выбран генератор');
+function handleGenerate(generatorType) {
+    if (!formBuilder) {
+        showNotification('error', 'FormBuilder не инициализирован');
         return;
     }
-
-    const generateBtn = document.getElementById('generate-btn');
-    const originalContent = generateBtn.innerHTML;
     
+    const formData = formBuilder.getFormData();
+    
+    if (!formData) {
+        showNotification('error', 'Пожалуйста, заполните все обязательные поля');
+        return;
+    }
+    
+    // Показываем загрузку
+    const generateBtn = document.querySelector('#form-actions button[type="submit"]');
+    const originalContent = generateBtn.innerHTML;
     generateBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Создание...';
     generateBtn.disabled = true;
-
-    fetch('/dag-generator/generate', {
+    
+    fetch('/dag-generator/api/generate', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -629,21 +395,35 @@ function handleGenerate() {
         },
         body: JSON.stringify({
             generator_type: generatorType,
-            form_data: formData
+            config: formData
         })
     })
-    .then(response => response.json())
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+            return response.text().then(text => {
+                console.error('Non-JSON response:', text.substring(0, 500));
+                throw new Error('Сервер вернул не JSON ответ');
+            });
+        }
+        
+        return response.json();
+    })
     .then(data => {
         if (data.success) {
-            showNotification('success', `✅ ${data.message}`);
-            showGenerationResult(data);
+            // Показываем только уведомление, без кода
+            showNotification('success', `✅ DAG "${data.dag_id}" успешно создан и сохранен в файл: ${data.dag_file_path}`);
         } else {
-            throw new Error(data.error || 'Generation failed');
+            throw new Error(data.error || 'DAG generation failed');
         }
     })
     .catch(error => {
-        console.error('Generation error:', error);
-        showNotification('error', `Ошибка генерации: ${error.message}`);
+        console.error('Generate error:', error);
+        showNotification('error', `❌ Ошибка создания DAG: ${error.message}`);
     })
     .finally(() => {
         generateBtn.innerHTML = originalContent;
@@ -652,9 +432,9 @@ function handleGenerate() {
 }
 
 /**
- * Показ модального окна предпросмотра
+ * Показывает модальное окно с предпросмотром кода
  */
-function showPreviewModal(dagCode) {
+function showPreviewModal(code) {
     // Создаем модальное окно если его нет
     let modal = document.getElementById('preview-modal');
     if (!modal) {
@@ -665,305 +445,79 @@ function showPreviewModal(dagCode) {
             <div class="modal-dialog modal-xl">
                 <div class="modal-content">
                     <div class="modal-header">
-                        <h5 class="modal-title">Предпросмотр DAG</h5>
+                        <h5 class="modal-title">
+                            <i class="fas fa-eye me-2"></i>Предпросмотр DAG
+                        </h5>
                         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                     </div>
                     <div class="modal-body">
                         <pre><code id="preview-code" class="language-python"></code></pre>
                     </div>
                     <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Закрыть</button>
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                            Закрыть
+                        </button>
+                        <button type="button" class="btn btn-primary" onclick="copyPreviewCode()">
+                            <i class="fas fa-copy me-2"></i>Копировать код
+                        </button>
                     </div>
                 </div>
             </div>
         `;
         document.body.appendChild(modal);
     }
-
-    // Обновляем содержимое
-    const codeElement = modal.querySelector('#preview-code');
-    if (codeElement) {
-        codeElement.textContent = dagCode;
-    }
-
+    
+    // Обновляем код
+    const codeElement = document.getElementById('preview-code');
+    codeElement.textContent = code;
+    
     // Показываем модальное окно
     const bootstrapModal = new bootstrap.Modal(modal);
     bootstrapModal.show();
 }
 
 /**
- * Показ результата генерации
+ * Копирует код предпросмотра в буфер обмена
  */
-function showGenerationResult(data) {
-    const resultContainer = document.getElementById('result-container');
-    if (!resultContainer) return;
-
-    resultContainer.innerHTML = `
-        <div class="card shadow-sm">
-            <div class="card-header bg-success text-white">
-                <h5 class="mb-0">
-                    <i class="fas fa-check-circle me-2"></i>
-                    DAG успешно создан
-                </h5>
-            </div>
-            <div class="card-body">
-                <div class="row">
-                    <div class="col-md-6">
-                        <h6>Информация о DAG:</h6>
-                        <ul class="list-unstyled">
-                            <li><strong>Имя:</strong> ${data.generator_info.display_name}</li>
-                            <li><strong>Файл:</strong> <code>${data.dag_file_path}</code></li>
-                        </ul>
-                    </div>
-                    <div class="col-md-6">
-                        <h6>Действия:</h6>
-                        <div class="d-flex gap-2">
-                            <button class="btn btn-outline-primary btn-sm" onclick="showPreviewModal(\`${data.dag_code.replace(/`/g, '\\`')}\`)">
-                                <i class="fas fa-eye me-1"></i> Просмотр кода
-                            </button>
-                            <button class="btn btn-outline-success btn-sm" onclick="copyToClipboard(\`${data.dag_code.replace(/`/g, '\\`')}\`)">
-                                <i class="fas fa-copy me-1"></i> Копировать код
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    `;
-
-    resultContainer.classList.remove('d-none');
-    resultContainer.scrollIntoView({ behavior: 'smooth' });
-}
-
-/**
- * Заполнение начальных данных из шаблона
- */
-function populateInitialData() {
-    const select = document.getElementById('generator-select');
-    const templates = window.GeneratorPageData.templates;
-    
-    if (select && templates && Object.keys(templates).length > 0) {
-        // Добавляем генераторы из начальных данных
-        Object.entries(templates).forEach(([key, name]) => {
-            const option = document.createElement('option');
-            option.value = key;
-            option.textContent = name;
-            select.appendChild(option);
-        });
-        
-        // Обновляем счетчик
-        const countElement = document.getElementById('generators-count');
-        if (countElement) {
-            countElement.textContent = Object.keys(templates).length;
-        }
-        
-        console.log(`Populated ${Object.keys(templates).length} initial generators`);
-    }
-}
-
-/**
- * Настройка обработчиков событий
- */
-function setupEventHandlers() {
-    // Кнопка перезагрузки генераторов
-    const reloadBtn = document.getElementById('reload-generators-btn');
-    if (reloadBtn) {
-        reloadBtn.addEventListener('click', reloadGenerators);
-        console.log('Reload button handler set');
-    }
-
-    // Селект генераторов
-    const generatorSelect = document.getElementById('generator-select');
-    if (generatorSelect) {
-        generatorSelect.addEventListener('change', (e) => {
-            handleGeneratorSelection(e.target.value);
-        });
-        console.log('Generator select handler set');
-    }
-}
-
-/**
- * Инициализация страницы
- */
-function initializePage() {
-    console.log('=== ИНИЦИАЛИЗАЦИЯ СТРАНИЦЫ ГЕНЕРАТОРОВ ===');
-    
-    // Инициализируем данные
-    initializePageData();
-    
-    // Заполняем начальные данные
-    populateInitialData();
-    
-    // Настраиваем обработчики
-    setupEventHandlers();
-    
-    // Сразу обновляем список генераторов
-    updateGeneratorsList()
-        .then(count => {
-            console.log(`Initial load: ${count} generators from API`);
-        })
-        .catch(error => {
-            console.log('API not available, using initial data only:', error.message);
-        });
-    
-    console.log('Инициализация завершена');
-}
-
-// Автоматическая инициализация при загрузке DOM
-document.addEventListener('DOMContentLoaded', initializePage);
-/**
- * Создание поля select - обновленная версия
- */
-function createSelectField(field, wrapper) {
-    let optionsHtml = '';
-    
-    if (!field.required) {
-        optionsHtml += '<option value="">Выберите...</option>';
-    }
-
-    if (field.options) {
-        field.options.forEach(option => {
-            // Поддерживаем и 'label' и 'text' для обратной совместимости
-            const label = option.label || option.text || option.value;
-            const isSelected = option.value === field.default_value ? 'selected' : '';
-            optionsHtml += `<option value="${option.value}" ${isSelected}>${label}</option>`;
+function copyPreviewCode() {
+    const codeElement = document.getElementById('preview-code');
+    if (codeElement) {
+        navigator.clipboard.writeText(codeElement.textContent).then(() => {
+            showNotification('success', 'Код скопирован в буфер обмена');
+        }).catch(err => {
+            console.error('Failed to copy code:', err);
+            showNotification('error', 'Не удалось скопировать код');
         });
     }
-
-    wrapper.innerHTML = `
-        <label for="${field.name}" class="form-label">
-            ${field.label}
-            ${field.required ? '<span class="text-danger">*</span>' : ''}
-        </label>
-        <select 
-            class="form-select" 
-            id="${field.name}" 
-            name="${field.name}" 
-            ${field.required ? 'required' : ''}
-        >
-            ${optionsHtml}
-        </select>
-        ${field.help_text ? `<div class="form-text">${field.help_text}</div>` : ''}
-        <div class="invalid-feedback"></div>
-    `;
-    return wrapper;
-}
-/**
- * Создание текстового поля - обновленная версия
- */
-function createInputField(field, wrapper) {
-    wrapper.innerHTML = `
-        <label for="${field.name}" class="form-label">
-            ${field.label}
-            ${field.required ? '<span class="text-danger">*</span>' : ''}
-        </label>
-        <input 
-            type="${field.type}" 
-            class="form-control" 
-            id="${field.name}" 
-            name="${field.name}" 
-            ${field.required ? 'required' : ''}
-            ${field.placeholder ? `placeholder="${field.placeholder}"` : ''}
-            ${field.default_value ? `value="${field.default_value}"` : ''}
-            ${field.pattern ? `pattern="${field.pattern}"` : ''}
-        >
-        ${field.help_text ? `<div class="form-text">${field.help_text}</div>` : ''}
-        <div class="invalid-feedback"></div>
-    `;
-    return wrapper;
 }
 
 /**
- * Создание поля textarea - обновленная версия
- */
-function createTextareaField(field, wrapper) {
-    wrapper.innerHTML = `
-        <label for="${field.name}" class="form-label">
-            ${field.label}
-            ${field.required ? '<span class="text-danger">*</span>' : ''}
-        </label>
-        <textarea 
-            class="form-control" 
-            id="${field.name}" 
-            name="${field.name}" 
-            rows="${field.rows || 3}"
-            ${field.required ? 'required' : ''}
-            ${field.placeholder ? `placeholder="${field.placeholder}"` : ''}
-        >${field.default_value || ''}</textarea>
-        ${field.help_text ? `<div class="form-text">${field.help_text}</div>` : ''}
-        <div class="invalid-feedback"></div>
-    `;
-    return wrapper;
-}
-
-/**
- * Создание поля checkbox - обновленная версия
- */
-function createCheckboxField(field, wrapper) {
-    wrapper.innerHTML = `
-        <div class="form-check">
-            <input 
-                class="form-check-input" 
-                type="checkbox" 
-                id="${field.name}" 
-                name="${field.name}" 
-                ${field.default_value ? 'checked' : ''}
-            >
-            <label class="form-check-label" for="${field.name}">
-                ${field.label}
-                ${field.required ? '<span class="text-danger">*</span>' : ''}
-            </label>
-            ${field.help_text ? `<div class="form-text">${field.help_text}</div>` : ''}
-        </div>
-    `;
-    return wrapper;
-}
-
-/**
- * Создание числового поля - обновленная версия
- */
-function createNumberField(field, wrapper) {
-    wrapper.innerHTML = `
-        <label for="${field.name}" class="form-label">
-            ${field.label}
-            ${field.required ? '<span class="text-danger">*</span>' : ''}
-        </label>
-        <input 
-            type="number" 
-            class="form-control" 
-            id="${field.name}" 
-            name="${field.name}" 
-            ${field.required ? 'required' : ''}
-            ${field.min !== undefined ? `min="${field.min}"` : ''}
-            ${field.max !== undefined ? `max="${field.max}"` : ''}
-            ${field.step !== undefined ? `step="${field.step}"` : ''}
-            ${field.default_value !== undefined ? `value="${field.default_value}"` : ''}
-        >
-        ${field.help_text ? `<div class="form-text">${field.help_text}</div>` : ''}
-        <div class="invalid-feedback"></div>
-    `;
-    return wrapper;
-}
-
-/**
- * Показ уведомлений
+ * Показывает уведомление
  */
 function showNotification(type, message) {
-    // Простая реализация уведомлений
-    const toast = document.createElement('div');
-    toast.className = `alert alert-${type === 'error' ? 'danger' : type} alert-dismissible fade show position-fixed`;
-    toast.style.cssText = 'top: 20px; right: 20px; z-index: 1055; min-width: 300px;';
-    toast.innerHTML = `
+    // Создаем контейнер для уведомлений если его нет
+    let container = document.getElementById('notifications-container');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'notifications-container';
+        container.style.cssText = 'position: fixed; top: 20px; right: 20px; z-index: 1050; max-width: 400px;';
+        document.body.appendChild(container);
+    }
+    
+    // Создаем уведомление
+    const notification = document.createElement('div');
+    notification.className = `alert alert-${type === 'error' ? 'danger' : type} alert-dismissible fade show`;
+    notification.innerHTML = `
         ${message}
         <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
     `;
     
-    document.body.appendChild(toast);
+    container.appendChild(notification);
     
-    // Автоматически скрываем через 5 секунд
+    // Автоматически удаляем через 5 секунд
     setTimeout(() => {
-        if (toast.parentNode) {
-            toast.remove();
+        if (notification.parentNode) {
+            notification.remove();
         }
     }, 5000);
 }

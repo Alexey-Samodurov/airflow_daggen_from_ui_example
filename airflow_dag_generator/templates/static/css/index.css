@@ -1,285 +1,292 @@
-
-/* Стили для главной страницы генератора DAG'ов в стиле Airflow UI */
-
-/* Основные цвета Airflow */
-:root {
-    --airflow-blue: #017cee;
-    --airflow-dark-blue: #0056b3;
-    --airflow-light-blue: #e8f4fd;
-    --airflow-gray: #6c757d;
-    --airflow-light-gray: #f8f9fa;
-    --airflow-dark-gray: #343a40;
-    --airflow-green: #28a745;
-    --airflow-red: #dc3545;
-    --airflow-orange: #fd7e14;
-    --airflow-border: #dee2e6;
+/* Основные стили */
+body {
+    background-color: #f8f9fa;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 }
 
-/* Выравнивание заголовка по центру */
-.page-title {
-    text-align: center;
-    margin-bottom: 2rem;
+.container-fluid {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 2rem 1rem;
 }
 
-.page-title h1 {
-    color: var(--airflow-dark-gray);
-    font-weight: 600;
-    margin-bottom: 0.5rem;
-}
-
-/* Центрирование кнопки перезагрузки генераторов */
-.reload-generators-container {
-    text-align: center;
-    margin-bottom: 2rem;
-}
-
-.btn-reload-generators {
-    background-color: var(--airflow-blue);
-    border-color: var(--airflow-blue);
+/* Заголовок */
+.main-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     color: white;
-    font-weight: 500;
-    padding: 0.5rem 1.5rem;
-    border-radius: 6px;
-    transition: all 0.2s ease;
+    border-radius: 1rem;
+    margin-bottom: 2rem;
 }
 
-.btn-reload-generators:hover {
-    background-color: var(--airflow-dark-blue);
-    border-color: var(--airflow-dark-blue);
-    transform: translateY(-1px);
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-/* Прозрачный фон для описания генератора */
-.generator-info {
-    animation: slideInUp 0.3s ease-out;
-    background: transparent !important;
-    border: 1px solid var(--airflow-border);
-    border-radius: 8px;
-    padding: 1.5rem;
-}
-
-.generator-description {
-    background: transparent !important;
-    border: none !important;
-    padding: 1rem 0;
-}
-
-.info-card {
-    border-left: 4px solid var(--airflow-blue);
-    background: transparent !important;
-    padding: 1rem;
-    border-radius: 0 8px 8px 0;
-}
-
-/* Фон в стиле Airflow */
-.bg-gradient-primary {
-    background: linear-gradient(135deg, var(--airflow-blue), var(--airflow-dark-blue));
-}
-
-/* Навигация в стиле Airflow */
-.navbar-dark.bg-primary {
-    background: var(--airflow-blue) !important;
-    border-bottom: 1px solid var(--airflow-border);
-}
-
-.navbar-brand {
-    font-weight: 600;
-    color: white !important;
-}
-
-/* Карточки в стиле Airflow */
-.card {
-    border: 1px solid var(--airflow-border);
-    border-radius: 8px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    transition: box-shadow 0.2s ease;
-}
-
-.card:hover {
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
-}
-
-.card-header {
-    background: var(--airflow-light-gray);
-    border-bottom: 1px solid var(--airflow-border);
-    font-weight: 600;
-    color: var(--airflow-dark-gray);
-}
-
-/* Кнопки в стиле Airflow */
-.btn-primary {
-    background-color: var(--airflow-blue);
-    border-color: var(--airflow-blue);
-    font-weight: 500;
-}
-
-.btn-primary:hover {
-    background-color: var(--airflow-dark-blue);
-    border-color: var(--airflow-dark-blue);
-}
-
-.btn-outline-primary {
-    color: var(--airflow-blue);
-    border-color: var(--airflow-blue);
-}
-
-.btn-outline-primary:hover {
-    background-color: var(--airflow-blue);
-    border-color: var(--airflow-blue);
-}
-
-.btn-success {
-    background-color: var(--airflow-green);
-    border-color: var(--airflow-green);
-}
-
-.btn-danger {
-    background-color: var(--airflow-red);
-    border-color: var(--airflow-red);
-}
-
-/* Формы в стиле Airflow */
-.form-control {
-    border: 1px solid var(--airflow-border);
-    border-radius: 4px;
-    font-size: 14px;
-}
-
-.form-control:focus {
-    border-color: var(--airflow-blue);
-    box-shadow: 0 0 0 0.2rem rgba(1, 124, 238, 0.25);
-}
-
-.form-label {
-    font-weight: 500;
-    color: var(--airflow-dark-gray);
+.main-header h1 {
+    font-size: 2.5rem;
+    font-weight: 300;
     margin-bottom: 0.5rem;
 }
 
-.form-select {
-    border: 1px solid var(--airflow-border);
-    border-radius: 4px;
+/* Панели */
+.panel-container {
+    background: white;
+    border-radius: 1rem;
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+    height: fit-content;
+    min-height: 600px;
 }
 
-.form-select:focus {
-    border-color: var(--airflow-blue);
-    box-shadow: 0 0 0 0.2rem rgba(1, 124, 238, 0.25);
+.panel-header {
+    padding: 1.5rem;
+    border-bottom: 1px solid #e9ecef;
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
 }
 
-/* Алерты в стиле Airflow */
-.alert {
-    border-radius: 6px;
-    border: none;
-    font-size: 14px;
+.panel-header h3 {
+    margin-bottom: 0.5rem;
+    color: #2c3e50;
+    font-size: 1.4rem;
+    font-weight: 600;
 }
 
-.alert-success {
-    background-color: #d4edda;
-    color: #155724;
-    border-left: 4px solid var(--airflow-green);
+.panel-header p {
+    margin-bottom: 0;
+    font-size: 0.95rem;
 }
 
-.alert-danger {
-    background-color: #f8d7da;
-    color: #721c24;
-    border-left: 4px solid var(--airflow-red);
+.panel-content {
+    padding: 1.5rem;
+    min-height: 500px;
 }
 
-.alert-info {
-    background-color: var(--airflow-light-blue);
-    color: #0c5460;
-    border-left: 4px solid var(--airflow-blue);
-}
-
-.alert-warning {
-    background-color: #fff3cd;
-    color: #856404;
-    border-left: 4px solid var(--airflow-orange);
-}
-
-/* Специфичные стили для генератора */
-.generator-selection {
+/* Поиск */
+.search-container {
     position: relative;
 }
 
-.empty-state {
-    transition: all 0.3s ease;
-    color: var(--airflow-gray);
+.search-icon {
+    position: absolute;
+    right: 15px;
+    top: 50%;
+    transform: translateY(-50%);
+    pointer-events: none;
+    z-index: 10;
+}
+
+.suggestions-container {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: white;
+    border: 1px solid #ddd;
+    border-top: none;
+    border-radius: 0 0 0.5rem 0.5rem;
+    max-height: 400px;
+    overflow-y: auto;
+    z-index: 1000;
+    display: none;
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+}
+
+.suggestions-container.show {
+    display: block;
+}
+
+.suggestion-item {
+    padding: 1rem;
+    border-bottom: 1px solid #f1f1f1;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.suggestion-item:hover {
+    background-color: #f8f9fa;
+    border-left: 4px solid #007bff;
+}
+
+.suggestion-item:last-child {
+    border-bottom: none;
+}
+
+.suggestion-item.loading,
+.suggestion-item.no-results {
+    cursor: default;
+    color: #6c757d;
     text-align: center;
-    padding: 3rem 1rem;
 }
 
-/* Таблицы в стиле Airflow */
-.table {
-    border-collapse: separate;
-    border-spacing: 0;
+.suggestion-item.loading:hover,
+.suggestion-item.no-results:hover {
+    background-color: transparent;
+    border-left: none;
 }
 
-.table thead th {
-    background: var(--airflow-light-gray);
-    border-bottom: 2px solid var(--airflow-border);
-    font-weight: 600;
-    color: var(--airflow-dark-gray);
+.suggestion-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
 }
 
-.table tbody td {
-    border-bottom: 1px solid var(--airflow-border);
-    vertical-align: middle;
+.suggestion-header strong {
+    color: #2c3e50;
+    font-size: 1rem;
 }
 
-.table-striped tbody tr:nth-of-type(odd) {
-    background-color: rgba(1, 124, 238, 0.05);
-}
-
-/* Бейджи в стиле Airflow */
-.badge {
-    font-size: 12px;
+.suggestion-meta {
+    font-size: 0.75rem;
+    color: #6c757d;
+    background: #e9ecef;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
     font-weight: 500;
 }
 
-.badge-primary {
-    background-color: var(--airflow-blue);
+.suggestion-description {
+    font-size: 0.85rem;
+    color: #495057;
+    margin-bottom: 0.5rem;
+    line-height: 1.4;
 }
 
-.badge-success {
-    background-color: var(--airflow-green);
+.suggestion-footer {
+    font-size: 0.75rem;
+    color: #6c757d;
 }
 
-.badge-danger {
-    background-color: var(--airflow-red);
+/* Пустые состояния */
+.empty-state {
+    color: #6c757d;
 }
 
-/* Контейнер для уведомлений */
-#notifications-container {
-    position: fixed;
-    top: 80px;
-    right: 20px;
-    z-index: 9999;
-    max-width: 400px;
+.empty-icon {
+    opacity: 0.3;
 }
 
-#notifications-container .alert {
-    margin-bottom: 10px;
-    animation: slideInRight 0.3s ease-out;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-}
-
-/* Типографика в стиле Airflow */
-h1, h2, h3, h4, h5, h6 {
-    color: var(--airflow-dark-gray);
+/* Формы */
+.form-label {
     font-weight: 600;
+    color: #2c3e50;
+    margin-bottom: 0.5rem;
 }
 
-.text-muted {
-    color: var(--airflow-gray) !important;
+.form-control, .form-select {
+    border-radius: 0.5rem;
+    border: 2px solid #e9ecef;
+    padding: 0.75rem 1rem;
+    transition: all 0.2s ease;
+}
+
+.form-control:focus, .form-select:focus {
+    border-color: #007bff;
+    box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+}
+
+.form-control-lg {
+    padding: 1rem 1.25rem;
+    font-size: 1.1rem;
+}
+
+/* Кнопки */
+.btn {
+    border-radius: 0.5rem;
+    padding: 0.75rem 1.5rem;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+.btn-success {
+    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+    border: none;
+}
+
+.btn-success:hover {
+    background: linear-gradient(135deg, #218838 0%, #1ea085 100%);
+    transform: translateY(-1px);
+}
+
+.btn-outline-secondary {
+    border: 2px solid #6c757d;
+}
+
+.btn-outline-secondary:hover {
+    transform: translateY(-1px);
+}
+
+/* Алерты */
+.alert {
+    border-radius: 0.5rem;
+    border: none;
+    padding: 1rem 1.25rem;
+}
+
+.alert-info {
+    background: linear-gradient(135deg, #d1ecf1 0%, #bee5eb 100%);
+    color: #0c5460;
+}
+
+/* Загрузчики */
+.spinner-border {
+    width: 3rem;
+    height: 3rem;
+}
+
+/* Генератор информации */
+.generator-info {
+    background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+    border-radius: 0.5rem;
+    padding: 1rem;
+    border-left: 4px solid #2196f3;
+}
+
+.generator-info h5 {
+    color: #1565c0;
+    margin-bottom: 0.5rem;
+}
+
+/* Адаптивность */
+@media (max-width: 768px) {
+    .container-fluid {
+        padding: 1rem 0.5rem;
+    }
+    
+    .main-header {
+        padding: 2rem 1rem;
+    }
+    
+    .main-header h1 {
+        font-size: 2rem;
+    }
+    
+    .panel-container {
+        margin-bottom: 2rem;
+        min-height: auto;
+    }
+    
+    .panel-content {
+        padding: 1rem;
+        min-height: auto;
+    }
+    
+    .col-md-6:nth-child(2) {
+        display: none;
+    }
+    
+    .col-md-6:nth-child(2).show-mobile {
+        display: block;
+    }
+}
+
+@media (min-width: 769px) {
+    .d-md-none {
+        display: none !important;
+    }
 }
 
 /* Анимации */
-@keyframes slideInUp {
+@keyframes fadeIn {
     from {
         opacity: 0;
-        transform: translateY(20px);
+        transform: translateY(10px);
     }
     to {
         opacity: 1;
@@ -287,110 +294,66 @@ h1, h2, h3, h4, h5, h6 {
     }
 }
 
-@keyframes slideInRight {
-    from {
-        opacity: 0;
-        transform: translateX(100%);
-    }
-    to {
-        opacity: 1;
-        transform: translateX(0);
-    }
+.fade-in {
+    animation: fadeIn 0.3s ease-out;
 }
 
-/* Состояния кнопок */
-.btn:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
+/* Улучшения UX */
+.suggestion-item {
+    position: relative;
 }
 
-.btn-loading .fas {
-    animation: spin 1s linear infinite;
+.suggestion-item::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    height: 100%;
+    width: 0;
+    background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+    transition: width 0.2s ease;
 }
 
-@keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
+.suggestion-item:hover::before {
+    width: 4px;
 }
 
-/* Иконки в стиле Airflow */
-.fas, .far {
-    color: var(--airflow-blue);
+/* Скроллбар для подсказок */
+.suggestions-container::-webkit-scrollbar {
+    width: 6px;
 }
 
-.text-success .fas {
-    color: var(--airflow-green);
+.suggestions-container::-webkit-scrollbar-track {
+    background: #f1f1f1;
 }
 
-.text-danger .fas {
-    color: var(--airflow-red);
+.suggestions-container::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 3px;
 }
 
-/* Хлебные крошки в стиле Airflow */
-.breadcrumb {
-    background: transparent;
-    padding: 0;
-    margin-bottom: 1rem;
+.suggestions-container::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
 }
 
-.breadcrumb-item a {
-    color: var(--airflow-blue);
-    text-decoration: none;
+/* Дополнительные улучшения */
+.form-text {
+    font-size: 0.85rem;
+    margin-top: 0.5rem;
 }
 
-.breadcrumb-item.active {
-    color: var(--airflow-gray);
+.badge {
+    font-size: 0.75rem;
+    padding: 0.35em 0.65em;
 }
 
-/* Футер в стиле Airflow */
-footer {
-    background: var(--airflow-light-gray) !important;
-    border-top: 1px solid var(--airflow-border);
-    color: var(--airflow-gray);
-}
-
-/* Адаптивность */
-@media (max-width: 768px) {
-    #notifications-container {
-        left: 10px;
-        right: 10px;
-        max-width: none;
-        top: 70px;
-    }
-    
-    .container-fluid {
-        padding-left: 15px;
-        padding-right: 15px;
-    }
-    
-    .page-title h1 {
-        font-size: 1.75rem;
-    }
-}
-
-/* Кастомные компоненты в стиле Airflow */
-.airflow-panel {
-    background: white;
-    border: 1px solid var(--airflow-border);
-    border-radius: 8px;
-    padding: 1.5rem;
-    margin-bottom: 1.5rem;
-}
-
-.airflow-panel-header {
-    display: flex;
+/* Статусы и метки */
+.status-badge {
+    display: inline-flex;
     align-items: center;
-    margin-bottom: 1rem;
-    padding-bottom: 0.75rem;
-    border-bottom: 1px solid var(--airflow-border);
+    gap: 0.25rem;
 }
 
-.airflow-panel-header h5 {
-    margin: 0;
-    color: var(--airflow-dark-gray);
-}
-
-.airflow-panel-header .fas {
-    margin-right: 0.5rem;
-    font-size: 1.1em;
+.status-badge i {
+    font-size: 0.8em;
 }

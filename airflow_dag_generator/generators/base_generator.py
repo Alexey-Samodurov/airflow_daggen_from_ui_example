@@ -1,7 +1,9 @@
 """
 Базовый класс для генераторов DAG
 """
+import json
 import logging
+from datetime import datetime
 from abc import ABC, abstractmethod
 from typing import Dict, Any, List
 
@@ -177,6 +179,129 @@ class BaseGenerator(ABC):
             'class_name': self.__class__.__name__,
             'module_name': self.__class__.__module__
         }
+
+    def get_template_version(self) -> str:
+        """Возвращает версию шаблона генератора"""
+        return getattr(self, 'template_version', '1.0.0')
+
+    def get_default_values(self) -> Dict[str, Any]:
+        """
+        Возвращает значения по умолчанию для формы
+
+        Returns:
+            Словарь с значениями по умолчанию
+        """
+        # Объединяем с существующими optional_fields
+        defaults = self.get_optional_fields().copy()
+
+        # Добавляем базовые значения
+        defaults.update({
+            'owner': 'airflow',
+            'retries': 1,
+            'schedule_interval': '@daily'
+        })
+
+        return defaults
+
+    # === ГЛАВНЫЙ МЕТОД ДЛЯ ГЕНЕРАЦИИ С МЕТАДАННЫМИ ===
+    def generate_with_metadata(self, form_data: Dict[str, Any]) -> str:
+        """
+        Генерирует DAG с метаданными
+
+        Args:
+            form_data: Данные формы
+
+        Returns:
+            Код DAG'а с встроенными метаданными
+        """
+        # Валидируем конфигурацию
+        validation_result = self.validate_config(form_data)
+        if not validation_result['valid']:
+            raise ValueError(f"Invalid configuration: {validation_result['errors']}")
+
+        # Импортируем функцию создания метаданных из utils
+        from ..utils.metadata_parser import create_metadata_string
+
+        # Создаем строку метаданных со ВСЕМИ параметрами
+        metadata_string = create_metadata_string(
+            generator_name=self.generator_name,
+            template_version=self.get_template_version(),
+            config=form_data  # Передаем ПОЛНУЮ конфигурацию
+        )
+
+        # Генерируем базовый код
+        dag_code = self.generate(form_data)
+
+        # Встраиваем метаданные в докстринг
+        return self._embed_metadata_in_docstring(dag_code, metadata_string)
+
+    def _embed_metadata_in_docstring(self, dag_code: str, metadata_string: str) -> str:
+        """
+        Встраивает метаданные в докстринг DAG'а
+
+        Args:
+            dag_code: Исходный код DAG'а
+            metadata_string: Строка с метаданными
+
+        Returns:
+            Код DAG'а с встроенными метаданными
+        """
+        import re
+
+        # Ищем первый многострочный докстринг (обычно в начале файла)
+        docstring_pattern = r'("""[\s\S]*?""")'
+        match = re.search(docstring_pattern, dag_code)
+
+        if match:
+            original_docstring = match.group(1)
+
+            # Создаем новый докстринг с метаданными
+            new_docstring = original_docstring[:-3] + f"\n{metadata_string}\n" + '"""'
+
+            # Заменяем оригинальный докстринг
+            updated_code = dag_code.replace(original_docstring, new_docstring, 1)
+            return updated_code
+        else:
+            # Если докстринг не найден, добавляем его в начало
+            metadata_docstring = f'"""\nGenerated DAG\n\n{metadata_string}\n"""\n\n'
+            return metadata_docstring + dag_code
+
+    # === ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ ===
+    def update_existing_dag(self, file_path: str, new_form_data: Dict[str, Any]) -> str:
+        """
+        Обновляет существующий DAG новыми данными
+
+        Args:
+            file_path: Путь к существующему файлу DAG'а
+            new_form_data: Новые данные формы
+
+        Returns:
+            Обновленный код DAG'а
+        """
+        # Просто перегенерируем DAG с новыми данными и метаданными
+        return self.generate_with_metadata(new_form_data)
+
+    def validate_form_data(self, form_data: Dict[str, Any]) -> List[str]:
+        """
+        Валидирует данные формы (расширенная версия validate_config)
+
+        Args:
+            form_data: Данные для валидации
+
+        Returns:
+            Список ошибок валидации (пустой список если ошибок нет)
+        """
+        # Используем существующий метод валидации
+        validation_result = self.validate_config(form_data)
+        errors = validation_result.get('errors', [])
+
+        # Дополнительная валидация DAG ID
+        dag_id = form_data.get('dag_id')
+        if dag_id:
+            if not dag_id.replace('_', '').replace('-', '').isalnum():
+                errors.append('DAG ID должен содержать только буквы, цифры, подчеркивания и дефисы')
+
+        return errors
 
     def __str__(self) -> str:
         return f"{self.__class__.__name__}(name='{self.generator_name}')"

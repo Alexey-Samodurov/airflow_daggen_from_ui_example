@@ -1,171 +1,288 @@
+import json
+import os
 import logging
+from datetime import datetime
+from flask import Blueprint, render_template, request, jsonify, flash, redirect, url_for
+from .generators import get_all_generators, get_generator, safe_manual_reload
+from .utils import save_dag_file
+from .utils.metadata_parser import MetadataParser
 
-from flask import (
-    render_template, request, jsonify,
-    Blueprint
-)
+logger = logging.getLogger(__name__)
 
-from airflow_dag_generator.generators import (
-    get_registry, list_generators, get_generator, safe_manual_reload
-)
-from airflow_dag_generator.utils.utils import get_csrf_token, get_templates_and_schedules, save_dag_file
-
-# Создаем Blueprint для веб-интерфейса
 dag_generator_bp = Blueprint(
     'dag_generator',
     __name__,
-    template_folder='templates',
+    template_folder='templates/dag_generator',
     static_folder='templates/static',
     url_prefix='/dag-generator'
 )
-
-logger = logging.getLogger(__name__)
 
 
 @dag_generator_bp.route('/')
 def index():
     """Главная страница генератора DAG'ов"""
-    try:
-        templates, schedules = get_templates_and_schedules()
-        csrf_token = get_csrf_token()
-
-        logger.info(f"Index page: {len(templates)} templates available")
-        logger.info(f"Templates: {list(templates.keys())}")
-
-        return render_template(
-            'dag_generator/index.html',
-            templates=templates,
-            schedules=schedules,
-            csrf_token=csrf_token
-        )
-    except Exception as e:
-        logger.error(f"Error in index route: {e}")
-        import traceback
-        traceback.print_exc()
-        return f"Error loading page: {str(e)}", 500
+    generators = get_all_generators()
+    return render_template('index.html', generators=generators)
 
 
 @dag_generator_bp.route('/api/generators')
-def api_get_generators():
-    """API эндпоинт для получения списка генераторов"""
+def api_generators():
+    """API для получения списка всех генераторов"""
     try:
-        generators = list_generators()
-        logger.info(f"API: returning {len(generators)} generators")
+        generators = get_all_generators()
+        generators_list = []
+        
+        for name, generator in generators.items():
+            try:
+                generators_list.append({
+                    'name': name,
+                    'display_name': generator.get_display_name(),
+                    'description': generator.get_description(),
+                    'class_name': generator.__class__.__name__
+                })
+            except Exception as e:
+                logger.error(f"Error getting info for generator {name}: {e}")
+                generators_list.append({
+                    'name': name,
+                    'display_name': name.replace('_', ' ').title(),
+                    'description': 'Description unavailable',
+                    'class_name': 'Unknown'
+                })
+        
         return jsonify({
             'status': 'success',
-            'generators': generators
+            'generators': generators_list,
+            'count': len(generators_list)
         })
+        
     except Exception as e:
         logger.error(f"Error getting generators: {e}")
         return jsonify({
             'status': 'error',
-            'message': str(e)
+            'message': str(e),
+            'generators': [],
+            'count': 0
         }), 500
 
 
-@dag_generator_bp.route('/api/debug/registry')
-def api_debug_registry():
-    """ОТЛАДОЧНЫЙ эндпоинт для проверки состояния реестра"""
+@dag_generator_bp.route('/api/generators/<generator_name>/fields')
+def api_generator_fields(generator_name):
+    """API для получения полей конкретного генератора"""
     try:
-        registry = get_registry()
-        generators_dict = registry.get_generators_dict()
+        logger.info(f"Getting fields for generator: {generator_name}")
         
-        debug_info = {
-            'registry_size': len(registry),
-            'generator_names': list(generators_dict.keys()),
-            'generators_details': []
-        }
-        
-        for name, gen in generators_dict.items():
-            debug_info['generators_details'].append({
-                'name': name,
-                'class': gen.__class__.__name__,
-                'display_name': gen.get_display_name(),
-                'module': gen.__class__.__module__,
-                'file': getattr(gen.__class__, '__module__', 'unknown')
-            })
-        
-        return jsonify({
-            'success': True,
-            'debug_info': debug_info
-        })
-    except Exception as e:
-        logger.error(f"Error in debug registry: {e}")
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
-
-
-@dag_generator_bp.route('/api/reload/manual', methods=['POST'])
-def api_manual_reload():
-    """API эндпоинт для безопасной ручной перезагрузки генераторов"""
-    try:
-        logger.info("=== MANUAL RELOAD API CALLED ===")
-        
-        # Используем безопасную функцию перезагрузки
-        count = safe_manual_reload()
-        
-        logger.info(f"Manual reload API completed: {count} generators loaded")
-        return jsonify({
-            'success': True,
-            'reloaded_count': count,
-            'message': f'Перезагружено {count} генераторов'
-        })
-    except Exception as e:
-        logger.error(f"Error during manual reload API: {e}")
-        import traceback
-        traceback.print_exc()
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
-
-
-@dag_generator_bp.route('/api/generators/<generator_type>/fields')
-def api_get_generator_fields(generator_type):
-    """API эндпоинт для получения полей генератора"""
-    try:
-        logger.info(f"=== GETTING FIELDS FOR GENERATOR: {generator_type} ===")
-        
-        # Проверяем реестр перед использованием
-        registry = get_registry()
-        all_generators = registry.get_generator_names()
-        logger.info(f"Available generators in registry: {all_generators}")
-        
-        generator = get_generator(generator_type)
+        generator = get_generator(generator_name)
         if not generator:
-            # Пытаемся перезагрузить и еще раз найти
-            logger.warning(f"Generator '{generator_type}' not found, trying reload...")
-            try:
-                safe_manual_reload()
-                generator = get_generator(generator_type)
-            except:
-                pass
+            logger.error(f"Generator '{generator_name}' not found")
+            return jsonify({
+                'success': False,
+                'error': f'Генератор "{generator_name}" не найден'
+            }), 404
+
+        # Получаем поля формы
+        try:
+            form_fields = generator.get_form_fields()
+            logger.info(f"Got {len(form_fields)} fields for generator {generator_name}")
+        except Exception as e:
+            logger.error(f"Error getting form fields: {e}")
+            # Fallback: пытаемся собрать поля вручную
+            form_fields = []
             
-            if not generator:
-                logger.error(f"Generator '{generator_type}' not found even after reload")
-                return jsonify({
-                    'success': False,
-                    'error': f'Генератор {generator_type} не найден'
-                }), 404
-
-        logger.info(f"Found generator: {generator.__class__.__name__}")
-
-        # Получаем поля от генератора
-        fields = generator.get_form_fields()
-        logger.info(f"Generator fields: {len(fields)} fields")
+            # Обязательные поля
+            try:
+                required_fields = generator.get_required_fields()
+                for field_name in required_fields:
+                    form_fields.append({
+                        'name': field_name,
+                        'type': 'text',
+                        'label': field_name.replace('_', ' ').title(),
+                        'required': True,
+                        'placeholder': f'Enter {field_name}...'
+                    })
+            except Exception as req_e:
+                logger.error(f"Error getting required fields: {req_e}")
+            
+            # Опциональные поля
+            try:
+                optional_fields = generator.get_optional_fields()
+                for field_name, default_value in optional_fields.items():
+                    form_fields.append({
+                        'name': field_name,
+                        'type': 'text',
+                        'label': field_name.replace('_', ' ').title(),
+                        'required': False,
+                        'default': default_value,
+                        'placeholder': f'Enter {field_name}...'
+                    })
+            except Exception as opt_e:
+                logger.error(f"Error getting optional fields: {opt_e}")
 
         return jsonify({
             'success': True,
             'display_name': generator.get_display_name(),
             'description': generator.get_description(),
-            'fields': fields,
-            'validation_rules': getattr(generator, 'validation_rules', {})
+            'fields': form_fields,
+            'generator_info': {
+                'name': generator.generator_name,
+                'display_name': generator.get_display_name(),
+                'description': generator.get_description(),
+                'version': getattr(generator, 'template_version', '1.0.0')
+            }
         })
 
     except Exception as e:
-        logger.error(f"Error getting generator fields: {e}")
+        logger.error(f"Error getting generator fields for {generator_name}: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': f'Ошибка получения полей генератора: {str(e)}'
+        }), 500
+
+
+@dag_generator_bp.route('/api/reload/manual', methods=['POST'])
+def api_manual_reload():
+    """API для ручной перезагрузки генераторов"""
+    try:
+        logger.info("Manual reload requested via API")
+        count = safe_manual_reload()
+        
+        return jsonify({
+            'success': True,
+            'message': f'Перезагружено {count} генераторов',
+            'count': count
+        })
+        
+    except Exception as e:
+        logger.error(f"Manual reload failed: {e}")
+        return jsonify({
+            'success': False,
+            'error': f'Ошибка перезагрузки: {str(e)}'
+        }), 500
+
+
+@dag_generator_bp.route('/api/reload/status')
+def api_reload_status():
+    """API для получения статуса системы перезагрузки"""
+    try:
+        from .generators.discovery import get_discovery_stats
+        stats = get_discovery_stats()
+        
+        return jsonify({
+            'success': True,
+            'stats': stats
+        })
+        
+    except Exception as e:
+        logger.error(f"Error getting reload status: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@dag_generator_bp.route('/create', methods=['POST'])
+def create_dag():
+    """Создание нового DAG'а"""
+    try:
+        # Определяем тип запроса
+        if request.content_type and 'application/json' in request.content_type:
+            data = request.get_json()
+            generator_type = data.get('generator_type')
+            form_data = data.get('form_data', {})
+        else:
+            generator_type = request.form.get('generator_type')
+            form_data = dict(request.form)
+            form_data.pop('generator_type', None)
+            form_data.pop('csrf_token', None)
+
+        # Получаем генератор
+        generator = get_generator(generator_type)
+        if not generator:
+            return jsonify({
+                'success': False,
+                'error': f'Генератор "{generator_type}" не найден'
+            }), 404
+
+        # Валидируем данные
+        try:
+            validation_result = generator.validate_config(form_data)
+            if not validation_result.get('valid', True):
+                return jsonify({
+                    'success': False,
+                    'errors': validation_result.get('errors', [])
+                }), 400
+        except Exception as val_e:
+            logger.warning(f"Validation failed: {val_e}")
+
+        # Генерируем DAG с полными метаданными
+        if hasattr(generator, 'generate_with_metadata'):
+            dag_code = generator.generate_with_metadata(form_data)
+        else:
+            dag_code = generator.generate(form_data)
+        
+        # Сохраняем файл
+        dag_id = form_data['dag_id']
+        file_path = save_dag_file(dag_id, dag_code)
+
+        return jsonify({
+            'success': True,
+            'message': f'DAG "{dag_id}" успешно создан',
+            'dag_code': dag_code,
+            'dag_id': dag_id,
+            'dag_file_path': file_path
+        })
+
+    except Exception as e:
+        logger.error(f"Error in create_dag: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': f'Ошибка создания DAG: {str(e)}'
+        }), 500
+
+
+@dag_generator_bp.route('/api/preview', methods=['POST'])
+def api_preview_dag():
+    """API для предпросмотра кода DAG'а"""
+    try:
+        data = request.get_json()
+        generator_type = data.get('generator_type')
+        config = data.get('config', {})
+        
+        generator = get_generator(generator_type)
+        if not generator:
+            return jsonify({
+                'success': False,
+                'error': f'Генератор "{generator_type}" не найден'
+            }), 404
+
+        # Валидируем данные
+        try:
+            validation_result = generator.validate_config(config)
+            if not validation_result.get('valid', True):
+                return jsonify({
+                    'success': False,
+                    'errors': validation_result.get('errors', [])
+                }), 400
+        except Exception as val_e:
+            logger.warning(f"Validation failed: {val_e}")
+
+        # Генерируем код с метаданными
+        if hasattr(generator, 'generate_with_metadata'):
+            preview_code = generator.generate_with_metadata(config)
+        else:
+            preview_code = generator.generate(config)
+
+        return jsonify({
+            'success': True,
+            'preview_code': preview_code,
+            'config_used': config
+        })
+
+    except Exception as e:
+        logger.error(f"Error generating preview: {e}")
         import traceback
         traceback.print_exc()
         return jsonify({
@@ -174,145 +291,268 @@ def api_get_generator_fields(generator_type):
         }), 500
 
 
-@dag_generator_bp.route('/preview', methods=['POST'])
-def preview_dag():
-    """Предпросмотр DAG с проверкой генератора"""
+@dag_generator_bp.route('/api/generate', methods=['POST'])
+def api_generate_dag():
+    """API для генерации DAG'а"""
     try:
-        logger.info(f"=== PREVIEW REQUEST ===")
+        data = request.get_json()
+        generator_type = data.get('generator_type')
+        config = data.get('config', {})
         
-        if request.content_type and 'application/json' in request.content_type:
-            data = request.get_json()
-            generator_type = data.get('generator_type')
-            form_data = data.get('form_data', {})
-            is_api_request = True
-        else:
-            generator_type = request.form.get('generator_type')
-            form_data = dict(request.form)
-            form_data.pop('generator_type', None)
-            form_data.pop('csrf_token', None)
-            is_api_request = False
-
-        if not generator_type:
-            error_msg = 'Не указан тип генератора'
-            if is_api_request:
-                return jsonify({'success': False, 'error': error_msg}), 400
-            else:
-                return error_msg, 400
-
-        # Получаем генератор с попыткой перезагрузки
         generator = get_generator(generator_type)
-        if not generator:
-            logger.warning(f"Generator '{generator_type}' not found for preview, trying reload...")
-            try:
-                safe_manual_reload()
-                generator = get_generator(generator_type)
-            except:
-                pass
-        
-        if not generator:
-            error_msg = 'Генератор не найден'
-            if is_api_request:
-                return jsonify({'success': False, 'error': error_msg}), 404
-            else:
-                return error_msg, 404
-
-        # Генерируем код для предпросмотра
-        dag_code = generator.generate(form_data)
-
-        if is_api_request:
-            return jsonify({
-                'success': True,
-                'dag_code': dag_code,
-                'generator_info': {
-                    'name': generator_type,
-                    'display_name': generator.get_display_name(),
-                    'description': generator.get_description()
-                }
-            })
-        else:
-            csrf_token = get_csrf_token()
-            return render_template(
-                'dag_generator/preview.html',
-                dag_code=dag_code,
-                form_data=form_data,
-                generator_type=generator_type,
-                generator_name=generator.get_display_name(),
-                csrf_token=csrf_token
-            )
-
-    except Exception as e:
-        logger.error(f"Error in preview: {e}")
-        import traceback
-        traceback.print_exc()
-        error_msg = f'Ошибка предпросмотра: {str(e)}'
-        if is_api_request:
-            return jsonify({'success': False, 'error': error_msg}), 500
-        else:
-            return error_msg, 500
-
-
-@dag_generator_bp.route('/generate', methods=['POST'])
-def generate_dag():
-    """Генерация DAG с проверкой генератора"""
-    try:
-        if request.content_type and 'application/json' in request.content_type:
-            data = request.get_json()
-            generator_type = data.get('generator_type')
-            form_data = data.get('form_data', {})
-        else:
-            generator_type = request.form.get('generator_type')
-            form_data = dict(request.form)
-            form_data.pop('generator_type', None)
-            form_data.pop('csrf_token', None)
-
-        logger.info(f"Generate request - Generator: {generator_type}")
-
-        if not generator_type:
-            return jsonify({
-                'success': False,
-                'error': 'Не указан тип генератора'
-            }), 400
-
-        # Получаем генератор с попыткой перезагрузки
-        generator = get_generator(generator_type)
-        if not generator:
-            logger.warning(f"Generator '{generator_type}' not found for generation, trying reload...")
-            try:
-                safe_manual_reload()
-                generator = get_generator(generator_type)
-            except:
-                pass
-        
         if not generator:
             return jsonify({
                 'success': False,
-                'error': 'Генератор не найден'
+                'error': f'Генератор "{generator_type}" не найден'
             }), 404
 
-        # Генерируем DAG
-        dag_code = generator.generate(form_data)
+        # Валидируем данные
+        try:
+            validation_result = generator.validate_config(config)
+            if not validation_result.get('valid', True):
+                return jsonify({
+                    'success': False,
+                    'errors': validation_result.get('errors', [])
+                }), 400
+        except Exception as val_e:
+            logger.warning(f"Validation failed: {val_e}")
 
-        # Сохраняем DAG файл
-        dag_id = form_data.get('dag_id', 'generated_dag')
-        dag_file_path = save_dag_file(dag_id, dag_code)
+        # Генерируем DAG с полными метаданными
+        if hasattr(generator, 'generate_with_metadata'):
+            dag_code = generator.generate_with_metadata(config)
+        else:
+            dag_code = generator.generate(config)
+        
+        # Сохраняем файл
+        dag_id = config['dag_id']
+        file_path = save_dag_file(dag_id, dag_code)
 
         return jsonify({
             'success': True,
+            'message': f'DAG "{dag_id}" успешно создан',
             'dag_code': dag_code,
-            'dag_file_path': dag_file_path,
-            'message': 'DAG успешно создан',
-            'generator_info': {
-                'name': generator_type,
-                'display_name': generator.get_display_name(),
-                'description': generator.get_description()
-            }
+            'dag_id': dag_id,
+            'dag_file_path': file_path
         })
 
     except Exception as e:
-        logger.error(f"Error in generate: {e}")
+        logger.error(f"Error in api_generate_dag: {e}")
         import traceback
         traceback.print_exc()
         return jsonify({
             'success': False,
-            'error': f'Ошибка генерации: {str(e)}'
+            'error': f'Ошибка создания DAG: {str(e)}'
+        }), 500
+
+
+@dag_generator_bp.route('/update', methods=['POST'])
+def update_dag():
+    """Обновление существующего DAG'а"""
+    try:
+        # Определяем тип запроса
+        if request.content_type and 'application/json' in request.content_type:
+            data = request.get_json()
+            generator_type = data.get('generator_type')
+            form_data = data.get('form_data', {})
+            original_dag_id = data.get('original_dag_id')
+        else:
+            generator_type = request.form.get('generator_type')
+            form_data = dict(request.form)
+            original_dag_id = form_data.pop('original_dag_id', None)
+            form_data.pop('generator_type', None)
+            form_data.pop('csrf_token', None)
+
+        if not original_dag_id:
+            return jsonify({
+                'success': False,
+                'error': 'Не указан оригинальный DAG ID'
+            }), 400
+
+        # Получаем генератор
+        generator = get_generator(generator_type)
+        if not generator:
+            return jsonify({
+                'success': False,
+                'error': f'Генератор "{generator_type}" не найден'
+            }), 404
+
+        # Валидируем данные
+        try:
+            validation_result = generator.validate_config(form_data)
+            if not validation_result.get('valid', True):
+                return jsonify({
+                    'success': False,
+                    'errors': validation_result.get('errors', [])
+                }), 400
+        except Exception as val_e:
+            logger.warning(f"Validation failed: {val_e}")
+
+        # Ищем оригинальный файл
+        parser = MetadataParser()
+        original_dag_info = parser.find_dag_by_id(original_dag_id)
+        if not original_dag_info:
+            return jsonify({
+                'success': False,
+                'error': f'Оригинальный DAG "{original_dag_id}" не найден'
+            }), 404
+
+        original_file_path = original_dag_info['file_path']
+
+        # Генерируем обновленный DAG с полными метаданными
+        if hasattr(generator, 'generate_with_metadata'):
+            updated_dag_code = generator.generate_with_metadata(form_data)
+        else:
+            updated_dag_code = generator.generate(form_data)
+
+        # Проверяем, изменился ли ID
+        new_dag_id = form_data['dag_id']
+        if new_dag_id != original_dag_id:
+            # Создаем новый файл с новым именем
+            new_file_path = save_dag_file(new_dag_id, updated_dag_code)
+            
+            # Удаляем старый файл
+            try:
+                os.remove(original_file_path)
+                logger.info(f"Removed old DAG file: {original_file_path}")
+            except OSError as e:
+                logger.warning(f"Could not remove old file {original_file_path}: {e}")
+
+            file_path = new_file_path
+            message = f'DAG переименован с "{original_dag_id}" на "{new_dag_id}" и обновлен'
+        else:
+            # Перезаписываем существующий файл
+            with open(original_file_path, 'w', encoding='utf-8') as f:
+                f.write(updated_dag_code)
+            file_path = original_file_path
+            message = f'DAG "{new_dag_id}" успешно обновлен'
+
+        return jsonify({
+            'success': True,
+            'message': message,
+            'dag_code': updated_dag_code,
+            'dag_id': new_dag_id,
+            'dag_file_path': file_path,
+            'was_renamed': new_dag_id != original_dag_id
+        })
+
+    except Exception as e:
+        logger.error(f"Error in update_dag: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': f'Ошибка обновления DAG: {str(e)}'
+        }), 500
+
+
+@dag_generator_bp.route('/api/search-dags')
+def api_search_dags():
+    """API для поиска DAG'ов по dag_id с подсказками"""
+    try:
+        query = request.args.get('q', '').strip()
+        if not query or len(query) < 2:
+            return jsonify({
+                'success': True,
+                'suggestions': []
+            })
+
+        parser = MetadataParser()
+        generated_dags = parser.scan_generated_dags()
+        
+        # Фильтруем DAG'и по поисковому запросу
+        suggestions = []
+        for dag in generated_dags:
+            dag_id = dag.get('cfg', {}).get('dag_id', '')
+            if query.lower() in dag_id.lower():
+                suggestions.append({
+                    'dag_id': dag_id,
+                    'generator_type': dag.get('gen', 'unknown'),
+                    'description': dag.get('cfg', {}).get('description', '')[:100],
+                    'last_modified': datetime.fromtimestamp(dag.get('file_mtime', 0)).strftime('%Y-%m-%d %H:%M'),
+                    'version': dag.get('ver', 'unknown')
+                })
+        
+        # Сортируем по релевантности (точные совпадения сначала, потом по алфавиту)
+        suggestions.sort(key=lambda x: (
+            0 if x['dag_id'].lower().startswith(query.lower()) else 1,
+            x['dag_id']
+        ))
+        
+        return jsonify({
+            'success': True,
+            'suggestions': suggestions[:10],
+            'total_found': len(suggestions)
+        })
+
+    except Exception as e:
+        logger.error(f"Error searching DAGs: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@dag_generator_bp.route('/api/dag/<dag_id>')
+def api_get_dag(dag_id):
+    """API для получения информации о конкретном DAG'е"""
+    try:
+        parser = MetadataParser()
+        dag_info = parser.find_dag_by_id(dag_id)
+        
+        if not dag_info:
+            return jsonify({
+                'success': False,
+                'error': f'DAG "{dag_id}" не найден или не содержит метаданных'
+            }), 404
+
+        # Добавляем дополнительную информацию
+        dag_info['file_info'] = {
+            'size': dag_info.get('file_size', 0),
+            'last_modified': datetime.fromtimestamp(dag_info.get('file_mtime', 0)).isoformat(),
+            'path': dag_info.get('file_path', '')
+        }
+
+        return jsonify({
+            'success': True,
+            'dag_info': dag_info
+        })
+
+    except Exception as e:
+        logger.error(f"Error getting DAG {dag_id}: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@dag_generator_bp.route('/delete/<dag_id>', methods=['POST'])
+def delete_dag(dag_id):
+    """Удаление DAG'а"""
+    try:
+        parser = MetadataParser()
+        dag_info = parser.find_dag_by_id(dag_id)
+        
+        if not dag_info:
+            return jsonify({
+                'success': False,
+                'error': f'DAG "{dag_id}" не найден'
+            }), 404
+
+        file_path = dag_info['file_path']
+        
+        # Удаляем файл
+        os.remove(file_path)
+        
+        logger.info(f"Deleted DAG file: {file_path}")
+        
+        return jsonify({
+            'success': True,
+            'message': f'DAG "{dag_id}" успешно удален'
+        })
+
+    except Exception as e:
+        logger.error(f"Error deleting DAG {dag_id}: {e}")
+        return jsonify({
+            'success': False,
+            'error': f'Ошибка удаления DAG: {str(e)}'
         }), 500

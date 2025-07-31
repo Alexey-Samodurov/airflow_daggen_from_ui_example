@@ -361,19 +361,9 @@ class DynamicFormBuilder {
     }
 
     _createFormActions() {
+        // Убираем создание кнопок, так как они уже есть в HTML
         const actionsDiv = document.createElement('div');
-        actionsDiv.className = 'form-actions d-flex gap-3 justify-content-center mt-4 pt-4 border-top';
-        actionsDiv.innerHTML = `
-            <button type="button" class="btn btn-outline-secondary btn-lg" onclick="formBuilder.resetForm()">
-                <i class="fas fa-undo me-2"></i>Сбросить
-            </button>
-            <button type="button" class="btn btn-info btn-lg" onclick="formBuilder.previewDAG()">
-                <i class="fas fa-eye me-2"></i>Предпросмотр
-            </button>
-            <button type="button" class="btn btn-success btn-lg" onclick="formBuilder.generateDAG()">
-                <i class="fas fa-magic me-2"></i>Создать DAG
-            </button>
-        `;
+        actionsDiv.className = 'form-actions-placeholder d-none';
         return actionsDiv;
     }
 
@@ -527,7 +517,7 @@ class DynamicFormBuilder {
             loadingBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Создание...';
             loadingBtn.disabled = true;
 
-            const response = await fetch('/dag-generator/generate', {
+            const response = await fetch('/dag-generator/api/generate', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -535,26 +525,40 @@ class DynamicFormBuilder {
                 },
                 body: JSON.stringify({
                     generator_type: this.currentGeneratorType,
-                    form_data: formData
+                    config: formData
                 })
             });
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            const contentType = response.headers.get('content-type');
+            if (!contentType || !contentType.includes('application/json')) {
+                const text = await response.text();
+                console.error('Non-JSON response:', text.substring(0, 500));
+                throw new Error('Сервер вернул не JSON ответ');
+            }
 
             const data = await response.json();
 
             if (data.success) {
-                this._showNotification('success', '✅ DAG успешно создан!');
-                this._showGeneratedCode(data.dag_code, data.dag_file_path);
-            } else {
-                throw new Error(data.error || 'Ошибка создания DAG');
-            }
-        } catch (error) {
-            console.error('Error generating DAG:', error);
-            this._showNotification('error', `❌ Ошибка создания: ${error.message}`);
-        } finally {
-            loadingBtn.innerHTML = originalText;
-            loadingBtn.disabled = false;
+                // Показываем только уведомление об успехе, без кода
+                this._showNotification('success', `✅ DAG "${data.dag_id}" успешно создан и сохранен в файл: ${data.dag_file_path}`);
+                
+                // Опционально: сбрасываем форму после успешного создания
+                // this.resetForm();
+        } else {
+            throw new Error(data.error || 'Ошибка создания DAG');
         }
+    } catch (error) {
+        console.error('Error generating DAG:', error);
+        this._showNotification('error', `❌ Ошибка создания: ${error.message}`);
+    } finally {
+        loadingBtn.innerHTML = originalText;
+        loadingBtn.disabled = false;
     }
+}
 
     async previewDAG() {
         if (!this._validateForm()) {
@@ -563,14 +567,14 @@ class DynamicFormBuilder {
         }
 
         const formData = this.getFormData();
-        const loadingBtn = document.querySelector('.btn-info');
+        const loadingBtn = document.querySelector('#preview-btn');
         const originalText = loadingBtn.innerHTML;
 
         try {
-            loadingBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Предпросмотр...';
+            loadingBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Генерация...';
             loadingBtn.disabled = true;
 
-            const response = await fetch('/dag-generator/preview', {
+            const response = await fetch('/dag-generator/api/preview', { // Добавлен /api/
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -578,19 +582,30 @@ class DynamicFormBuilder {
                 },
                 body: JSON.stringify({
                     generator_type: this.currentGeneratorType,
-                    form_data: formData
+                    config: formData // Изменено с form_data на config
                 })
             });
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            const contentType = response.headers.get('content-type');
+            if (!contentType || !contentType.includes('application/json')) {
+                const text = await response.text();
+                console.error('Non-JSON response:', text.substring(0, 500));
+                throw new Error('Сервер вернул не JSON ответ');
+            }
 
             const data = await response.json();
 
             if (data.success) {
-                this._showGeneratedCode(data.dag_code, null, true);
+                this._showPreviewModal(data.preview_code);
             } else {
-                throw new Error(data.error || 'Ошибка предпросмотра');
+                throw new Error(data.error || 'Ошибка генерации предпросмотра');
             }
         } catch (error) {
-            console.error('Error previewing DAG:', error);
+            console.error('Preview error:', error);
             this._showNotification('error', `❌ Ошибка предпросмотра: ${error.message}`);
         } finally {
             loadingBtn.innerHTML = originalText;
@@ -598,33 +613,37 @@ class DynamicFormBuilder {
         }
     }
 
+    /**
+     * Сброс формы к значениям по умолчанию
+     */
     resetForm() {
         const form = document.getElementById('dynamic-generator-form');
         if (!form) return;
 
-        form.reset();
-
-        // Убираем классы валидации
-        const inputs = form.querySelectorAll('.is-valid, .is-invalid');
+        // Сбрасываем все поля
+        const inputs = form.querySelectorAll('input, select, textarea');
         inputs.forEach(input => {
+            if (input.type === 'checkbox') {
+                // Для чекбоксов используем default_value из конфигурации
+                const fieldConfig = this.fieldsConfig.find(f => f.name === input.name);
+                input.checked = fieldConfig?.default_value || false;
+            } else {
+                // Для остальных полей устанавливаем значение по умолчанию
+                const fieldConfig = this.fieldsConfig.find(f => f.name === input.name);
+                input.value = fieldConfig?.default_value || '';
+            }
+            
+            // Убираем классы валидации
             input.classList.remove('is-valid', 'is-invalid');
         });
 
-        // Устанавливаем значения по умолчанию
-        this.fieldsConfig?.forEach(field => {
-            if (field.default_value !== undefined) {
-                const input = form.querySelector(`[name="${field.name}"]`);
-                if (input) {
-                    if (input.type === 'checkbox') {
-                        input.checked = field.default_value;
-                    } else {
-                        input.value = field.default_value;
-                    }
-                }
-            }
+        // Скрываем feedback сообщения
+        const feedbacks = form.querySelectorAll('.invalid-feedback');
+        feedbacks.forEach(feedback => {
+            feedback.textContent = '';
         });
 
-        this._showNotification('info', '📝 Форма сброшена');
+        this._showNotification('info', 'Форма сброшена к значениям по умолчанию');
     }
 
     _showGeneratedCode(code, filePath = null, isPreview = false) {
@@ -723,30 +742,98 @@ class DynamicFormBuilder {
         return '';
     }
 
-    _showNotification(type, message) {
-        // Простая реализация уведомлений
-        const toast = document.createElement('div');
-        toast.className = `alert alert-${type === 'error' ? 'danger' : type} alert-dismissible fade show position-fixed`;
-        toast.style.cssText = 'top: 20px; right: 20px; z-index: 1055; min-width: 300px;';
-        toast.innerHTML = `
-            ${message}
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        `;
-        
-        document.body.appendChild(toast);
-        
-        // Автоматически скрываем через 5 секунд
-        setTimeout(() => {
-            if (toast.parentNode) {
-                toast.remove();
-            }
-        }, 5000);
+    /**
+     * Показывает модальное окно предпросмотра
+     */
+    _showPreviewModal(previewCode) {
+        // Проверяем, есть ли глобальная функция showPreviewModal
+        if (typeof showPreviewModal === 'function') {
+            showPreviewModal(previewCode);
+            return;
+        }
+
+        // Если глобальной функции нет, создаем модальное окно
+        this._createAndShowPreviewModal(previewCode);
     }
 
+    /**
+     * Создает и показывает модальное окно предпросмотра
+     */
+    _createAndShowPreviewModal(previewCode) {
+        // Удаляем существующий модал если есть
+        const existingModal = document.getElementById('preview-modal');
+        if (existingModal) {
+            existingModal.remove();
+        }
+
+        // Создаем модальное окно
+        const modalHtml = `
+            <div class="modal fade" id="preview-modal" tabindex="-1" aria-labelledby="previewModalLabel" aria-hidden="true">
+                <div class="modal-dialog modal-xl">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h1 class="modal-title fs-5" id="previewModalLabel">
+                                <i class="fas fa-eye me-2"></i>Предпросмотр DAG
+                            </h1>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="position-relative">
+                                <button class="btn btn-outline-secondary btn-sm position-absolute top-0 end-0 mt-2 me-2" 
+                                        onclick="copyToClipboard('preview-code')" 
+                                        title="Копировать в буфер обмена">
+                                    <i class="fas fa-copy"></i>
+                                </button>
+                                <pre><code id="preview-code" class="language-python">${this._escapeHtml(previewCode)}</code></pre>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                                <i class="fas fa-times me-2"></i>Закрыть
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        // Добавляем модал в DOM
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+        // Показываем модал
+        const modal = new bootstrap.Modal(document.getElementById('preview-modal'));
+        modal.show();
+
+        // Удаляем модал после закрытия
+        document.getElementById('preview-modal').addEventListener('hidden.bs.modal', function() {
+            this.remove();
+        });
+    }
+
+    /**
+     * Экранирует HTML символы
+     */
     _escapeHtml(text) {
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
+    }
+
+    /**
+     * Показывает уведомление
+     */
+    _showNotification(type, message) {
+        // Проверяем, есть ли глобальная функция showNotification
+        if (typeof showNotification === 'function') {
+            showNotification(type, message);
+            return;
+        }
+
+        // Простое уведомление через alert если глобальной функции нет
+        console.log(`${type.toUpperCase()}: ${message}`);
+        if (type === 'error') {
+            alert(`Ошибка: ${message}`);
+        }
     }
 
     _debounce(func, wait) {

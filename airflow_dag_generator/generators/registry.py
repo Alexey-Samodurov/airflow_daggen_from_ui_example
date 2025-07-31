@@ -92,6 +92,10 @@ class GeneratorRegistry:
         with self._lock:
             return list(self._generators.keys())
 
+    def list_all(self) -> List[str]:
+        """Алиас для get_generator_names() - для обратной совместимости"""
+        return self.get_generator_names()
+
     def clear(self):
         """Очищает весь реестр"""
         with self._lock:
