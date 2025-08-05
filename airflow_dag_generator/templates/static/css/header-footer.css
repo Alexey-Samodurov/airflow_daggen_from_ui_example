@@ -1,0 +1,151 @@
+/* Стили для хедера и футера */
+.main-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.navbar-brand {
+    font-weight: 600;
+    font-size: 1.5rem;
+}
+
+.navbar-nav .nav-link {
+    color: rgba(255, 255, 255, 0.9) !important;
+    font-weight: 500;
+    padding: 0.75rem 1rem !important;
+    border-radius: 0.375rem;
+    margin: 0 0.25rem;
+    transition: all 0.3s ease;
+}
+
+.navbar-nav .nav-link:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+    color: white !important;
+}
+
+.navbar-nav .nav-link.active {
+    background-color: rgba(255, 255, 255, 0.2);
+    color: white !important;
+}
+
+/* Разделение хедера и заголовка страницы */
+.page-title-section {
+    background: white;
+    color: #333;
+    border-bottom: 1px solid #e9ecef;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+/* Футер - такой же цвет как хедер */
+.footer {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    margin-top: 4rem;
+}
+
+.footer a {
+    color: rgba(255, 255, 255, 0.9);
+    text-decoration: none;
+    transition: color 0.3s ease;
+}
+
+.footer a:hover {
+    color: white;
+    text-decoration: none;
+}
+
+.footer-brand {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: white;
+}
+
+.footer-links a {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.5rem 1rem;
+    border-radius: 0.375rem;
+    transition: all 0.3s ease;
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.footer-links a:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+    transform: translateY(-1px);
+    color: white;
+}
+
+.footer-divider {
+    border-color: rgba(255, 255, 255, 0.2);
+    margin: 2rem 0 1rem 0;
+}
+
+.footer .text-muted {
+    color: rgba(255, 255, 255, 0.8) !important;
+}
+
+.footer small.text-muted {
+    color: rgba(255, 255, 255, 0.7) !important;
+}
+
+/* Анимации */
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.footer {
+    animation: fadeInUp 0.6s ease-out;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .navbar-brand {
+        font-size: 1.25rem;
+    }
+    
+    .footer .col-md-8 {
+        padding: 0 1rem;
+    }
+    
+    .footer-links a {
+        display: block;
+        margin: 0.5rem 0;
+        text-align: center;
+    }
+    
+    .page-title-section h1 {
+        font-size: 2rem;
+    }
+    
+    .page-title-section .lead {
+        font-size: 1rem;
+    }
+}
+
+/* Эффекты прокрутки */
+.main-header {
+    transition: box-shadow 0.3s ease;
+}
+
+/* Стили для канала team-data-lake */
+.footer strong {
+    color: #87ceeb;
+    font-weight: 600;
+}
+
+/* Дополнительные стили для четкого разделения */
+.navbar {
+    margin-bottom: 0;
+}
+
+.page-title-section {
+    margin-top: 0;
+}

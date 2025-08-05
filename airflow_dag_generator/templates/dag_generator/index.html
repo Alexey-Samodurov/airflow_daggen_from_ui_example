@@ -3,23 +3,48 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DAG Generator</title>
+    <title>DAG Generator - Apache Airflow</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link href="{{ url_for('dag_generator.static', filename='css/index.css') }}" rel="stylesheet">
+    <link href="{{ url_for('dag_generator.static', filename='css/header-footer.css') }}" rel="stylesheet">
 </head>
 <body>
-    <div class="container-fluid">
-        <!-- Заголовок -->
-        <div class="row mb-4">
-            <div class="col-12">
-                <div class="main-header text-center py-4">
-                    <h1><i class="fas fa-magic me-3"></i>DAG Generator</h1>
-                    <p class="text-muted">Создание и редактирование DAG'ов Airflow</p>
+    <!-- Хедер - только навигация -->
+    <header class="main-header">
+        <nav class="navbar navbar-expand-lg">
+            <div class="container-fluid">
+                <!-- Логотип и название -->
+                <a class="navbar-brand" href="/dag-generator/">
+                    <i class="fas fa-magic me-2"></i>
+                    DAG Generator
+                </a>
+                
+                <!-- Навигационное меню -->
+                <div class="navbar-nav ms-auto">
+                    <a class="nav-link" href="/" data-bs-toggle="tooltip" title="Перейти на главную страницу Airflow">
+                        <i class="fas fa-home me-1"></i>
+                        Главная Airflow
+                    </a>
                 </div>
             </div>
-        </div>
+        </nav>
+    </header>
 
+    <!-- Заголовок страницы - отдельная секция -->
+    <section class="page-title-section">
+        <div class="container-fluid py-4">
+            <div class="text-center">
+                <h1 class="display-5 fw-bold mb-2 text-primary">
+                    <i class="fas fa-magic me-3"></i>DAG Generator
+                </h1>
+                <p class="lead mb-0 text-muted">Создание и редактирование DAG'ов Apache Airflow</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Основной контент -->
+    <main class="container-fluid py-4">
         <div class="row">
             <!-- Левая панель - Создание нового DAG -->
             <div class="col-md-6" id="create-panel">
@@ -55,7 +80,7 @@
                                 <div class="spinner-border text-primary" role="status">
                                     <span class="visually-hidden">Загрузка...</span>
                                 </div>
-                                <p class="mt-3 text-muted">Загрузка формы...</p>
+                                <p class="mt-3 text-muted">Загрузка формы...</</p>
                             </div>
 
                             <div id="dynamic-form-container">
@@ -98,18 +123,27 @@
 
                     <div class="panel-content">
                         <!-- Поиск DAG'ов -->
-                        <div class="search-container mb-4">
-                            <div class="position-relative">
-                                <input type="text" 
-                                       class="form-control form-control-lg" 
-                                       id="dag-search-input" 
-                                       placeholder="Начните вводить ID DAG'а..." 
-                                       autocomplete="off">
-                                <div class="search-icon">
-                                    <i class="fas fa-search text-muted"></i>
+                        <div class="mb-4">
+                            <label for="dag-search-input" class="form-label">
+                                <i class="fas fa-search me-2"></i>ID DAG'а
+                            </label>
+                            <div class="search-container">
+                                <div class="position-relative">
+                                    <input type="text" 
+                                           class="form-control form-control-lg" 
+                                           id="dag-search-input" 
+                                           placeholder="Начните вводить ID DAG'а..." 
+                                           autocomplete="off">
+                                    <div class="search-icon">
+                                        <i class="fas fa-search text-muted"></i>
+                                    </div>
                                 </div>
+                                <div id="search-suggestions" class="suggestions-container"></div>
                             </div>
-                            <div id="search-suggestions" class="suggestions-container"></div>
+                            <div class="form-text">
+                                <i class="fas fa-info-circle me-1"></i>
+                                Поиск работает только для DAG'ов, созданных через этот генератор
+                            </div>
                         </div>
 
                         <!-- Информация о режиме редактирования -->
@@ -133,9 +167,6 @@
                             <p class="text-muted">
                                 Введите часть ID DAG'а в поле поиска выше, чтобы найти существующие DAG'и для редактирования.
                             </p>
-                            <small class="text-muted">
-                                Поиск работает только для DAG'ов, созданных через этот генератор.
-                            </small>
                         </div>
 
                         <!-- Кнопка переключения панелей (на мобильных) -->
@@ -148,28 +179,60 @@
                 </div>
             </div>
         </div>
-    </div>
+    </main>
+
+    <!-- Футер -->
+    <footer class="footer">
+        <div class="container-fluid py-4">
+            <div class="row justify-content-center">
+                <div class="col-md-8 text-center">
+                    <div class="footer-brand mb-3">
+                        <i class="fas fa-magic me-2"></i>
+                        DAG Generator
+                    </div>
+                    
+                    <p class="text-muted mb-3">
+                        <i class="fas fa-question-circle me-2"></i>
+                        По вопросам работоспособности плагина обращаться в канал 
+                        <strong>#team-data-lake</strong>
+                    </p>
+                    
+                    <div class="footer-links">
+                        <a href="#" class="text-decoration-none me-4" onclick="alert('Документация в разработке')">
+                            <i class="fas fa-book me-1"></i>
+                            Документация
+                        </a>
+                        <a href="/" class="text-decoration-none">
+                            <i class="fas fa-home me-1"></i>
+                            Главная Airflow
+                        </a>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Разделитель -->
+            <hr class="footer-divider">
+            
+            <!-- Нижняя часть футера -->
+            <div class="row">
+                <div class="col-12 text-center">
+                    <small class="text-muted">
+                        © {{ current_year or 2025 }} DAG Generator. 
+                        Работает на Apache Airflow
+                    </small>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Контейнер для уведомлений -->
+    <div id="notifications-container" class="position-fixed top-0 end-0 p-3" style="z-index: 1055;"></div>
 
     <!-- Подключаем скрипты -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="{{ url_for('dag_generator.static', filename='js/navigation.js') }}"></script>
     <script src="{{ url_for('dag_generator.static', filename='js/dynamic-form-builder.js') }}"></script>
     <script src="{{ url_for('dag_generator.static', filename='js/search-manager.js') }}"></script>
     <script src="{{ url_for('dag_generator.static', filename='js/index.js') }}"></script>
-
-    <script>
-        // Функция для мобильного переключения панелей
-        function toggleMobilePanels() {
-            const createPanel = document.getElementById('create-panel');
-            const editPanel = document.getElementById('edit-panel');
-            
-            if (createPanel.classList.contains('d-md-block')) {
-                createPanel.classList.add('d-none', 'd-md-block');
-                editPanel.classList.remove('d-none');
-            } else {
-                createPanel.classList.remove('d-none');
-                editPanel.classList.add('d-none', 'd-md-block');
-            }
-        }
-    </script>
 </body>
 </html>

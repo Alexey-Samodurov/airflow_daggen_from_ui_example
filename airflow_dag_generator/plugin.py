@@ -17,7 +17,7 @@ class DagGeneratorPlugin(AirflowPlugin):
     appbuilder_menu_items = [
         {
             "name": "Generate DAG",
-            "category": "Tools",
+            "category": "Custom tools",
             "category_icon": "fa-cogs",
             "href": "/dag-generator/",
         }
@@ -42,4 +42,4 @@ class DagGeneratorPlugin(AirflowPlugin):
             from importlib.metadata import version
             return version("airflow-dag-generator")
         except ImportError:
-            return "0.1.0"
+            return "no version info available"
