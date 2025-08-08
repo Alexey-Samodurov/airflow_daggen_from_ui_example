@@ -24,6 +24,7 @@ wheels/
 share/python-wheels/
 /logs
 /config
+/plugins
 *.egg-info/
 .installed.cfg
 *.egg

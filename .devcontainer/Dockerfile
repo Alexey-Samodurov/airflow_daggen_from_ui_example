@@ -9,7 +9,6 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /workspace
 
 # Копируем файлы установки
-COPY ../setup.py .
 COPY ../pyproject.toml .
 COPY ../README.md .
 

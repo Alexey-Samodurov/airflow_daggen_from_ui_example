@@ -3,18 +3,28 @@
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     color: white;
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    border-radius: 0 !important; /* Принудительно убираем скругление */
+}
+
+.main-header .navbar {
+    border-radius: 0 !important; /* Убираем скругление у navbar */
+}
+
+.main-header .container-fluid {
+    border-radius: 0 !important; /* Убираем скругление у контейнера */
 }
 
 .navbar-brand {
     font-weight: 600;
     font-size: 1.5rem;
+    border-radius: 0 !important; /* Убираем скругление у логотипа */
 }
 
 .navbar-nav .nav-link {
     color: rgba(255, 255, 255, 0.9) !important;
     font-weight: 500;
     padding: 0.75rem 1rem !important;
-    border-radius: 0; /* Убираем скругление */
+    border-radius: 0 !important; /* Принудительно убираем скругление */
     margin: 0 0.25rem;
     transition: all 0.3s ease;
 }
@@ -22,11 +32,18 @@
 .navbar-nav .nav-link:hover {
     background-color: rgba(255, 255, 255, 0.1);
     color: white !important;
+    border-radius: 0 !important; /* Убираем скругление при ховере */
 }
 
 .navbar-nav .nav-link.active {
     background-color: rgba(255, 255, 255, 0.2);
     color: white !important;
+    border-radius: 0 !important; /* Убираем скругление у активной ссылки */
+}
+
+/* Убираем скругления у всех элементов в хедере */
+.main-header * {
+    border-radius: 0 !important;
 }
 
 /* Разделение хедера и заголовка страницы */
@@ -42,6 +59,7 @@
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     color: white;
     margin-top: 4rem;
+    border-radius: 0 !important; /* Убираем скругление у футера */
 }
 
 .footer a {
@@ -65,7 +83,7 @@
     display: inline-flex;
     align-items: center;
     padding: 0.5rem 1rem;
-    border-radius: 0; /* Убираем скругление и в футере для консистентности */
+    border-radius: 0 !important; /* Принудительно убираем скругление */
     transition: all 0.3s ease;
     color: rgba(255, 255, 255, 0.9);
 }
@@ -74,6 +92,7 @@
     background-color: rgba(255, 255, 255, 0.1);
     transform: translateY(-1px);
     color: white;
+    border-radius: 0 !important; /* Убираем скругление при ховере */
 }
 
 .footer-divider {
@@ -144,6 +163,7 @@
 /* Дополнительные стили для четкого разделения */
 .navbar {
     margin-bottom: 0;
+    border-radius: 0 !important; /* Убираем скругление у navbar */
 }
 
 .page-title-section {
