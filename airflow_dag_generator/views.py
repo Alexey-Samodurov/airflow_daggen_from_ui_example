@@ -95,19 +95,6 @@ def api_generators():
 def api_generator_fields(generator_name):
     """
     Handles API request to retrieve form fields for a specific generator.
-
-    This endpoint fetches the required and optional form fields for a specified
-    generator by its name. Additional generator metadata such as display name,
-    description, and version is also included in the response.
-
-    Args:
-        generator_name (str): The name of the generator.
-
-    Returns:
-        Response: JSON object containing the success status, generator details,
-        and form fields. If the generator is not found, a 404 status code with
-        an appropriate error message is returned. For failed field retrieval or
-        other errors, a 500 status code with an error message is returned.
     """
     try:
         logger.info(f"Getting fields for generator: {generator_name}")
@@ -121,47 +108,20 @@ def api_generator_fields(generator_name):
             }), 404
 
         try:
-            form_fields = generator.get_form_fields()
-            logger.info(f"Got {len(form_fields)} fields for generator {generator_name}")
+            form_fields = generator.get_form_fields()  # Возвращает List[FormField]
+            # Преобразуем FormField объекты в словари для JavaScript
+            form_fields_dict = [field.to_dict() for field in form_fields]
+            logger.info(f"Got {len(form_fields_dict)} fields for generator {generator_name}")
         except Exception as e:
             logger.error(f"Error getting form fields: {e}")
-            # Fallback: пытаемся собрать поля вручную
-            form_fields = []
-            
-            # # Обязательные поля
-            # try:
-            #     required_fields = generator.get_required_fields()
-            #     for field_name in required_fields:
-            #         form_fields.append({
-            #             'name': field_name,
-            #             'type': 'text',
-            #             'label': field_name.replace('_', ' ').title(),
-            #             'required': True,
-            #             'placeholder': f'Enter {field_name}...'
-            #         })
-            # except Exception as req_e:
-            #     logger.error(f"Error getting required fields: {req_e}")
-            #
-            # # Опциональные поля
-            # try:
-            #     optional_fields = generator.get_optional_fields()
-            #     for field_name, default_value in optional_fields.items():
-            #         form_fields.append({
-            #             'name': field_name,
-            #             'type': 'text',
-            #             'label': field_name.replace('_', ' ').title(),
-            #             'required': False,
-            #             'default': default_value,
-            #             'placeholder': f'Enter {field_name}...'
-            #         })
-            # except Exception as opt_e:
-            #     logger.error(f"Error getting optional fields: {opt_e}")
+            # Fallback: возвращаем пустой список
+            form_fields_dict = []
 
         return jsonify({
             'success': True,
             'display_name': generator.get_display_name(),
             'description': generator.get_description(),
-            'fields': form_fields,
+            'fields': form_fields_dict,  # Используем словари вместо объектов
             'generator_info': {
                 'name': generator.generator_name,
                 'display_name': generator.get_display_name(),

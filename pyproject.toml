@@ -19,18 +19,15 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
-# Указываем правильный пакет
 packages = [{include = "airflow_dag_generator"}]
 
 [tool.poetry.dependencies]
 python = ">=3.10,<3.13"
-apache-airflow = "^2.10.2"
-flask = "^2.0.0"
-wtforms = "^3.0.0"
-jinja2 = "^3.0.0"
+pydantic = "^2.11.7"
 watchdog = "^3.0.0"
 
 [tool.poetry.group.dev.dependencies]
+apache-airflow = "2.10.2"
 pytest = "^7.0.0"
 pytest-cov = "^4.0.0"
 black = "^23.0.0"
@@ -46,8 +43,8 @@ requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.black]
-line-length = 88
-target-version = ['py311']
+line-length = 120
+target-version = ['py310', 'py311', 'py312']
 include = '\.pyi?$'
 extend-ignore = ['E203', 'W503']
 

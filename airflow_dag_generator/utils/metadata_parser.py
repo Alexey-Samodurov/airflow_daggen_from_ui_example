@@ -1,7 +1,3 @@
-"""
-Парсер метаданных из DAG файлов
-"""
-
 import json
 import os
 import re
@@ -11,9 +7,16 @@ from typing import Dict, Any, List, Optional
 
 
 class MetadataParser:
-    """Парсер для извлечения метаданных из DAG файлов"""
+    """Parses and manages metadata of DAG files.
+
+    This class provides functionality to extract, scan, and manage metadata
+    from Directed Acyclic Graph (DAG) files in a given folder. Includes methods
+    to analyze generated DAGs, identify outdated templates, and fetch statistics.
+
+    Attributes:
+        METADATA_PATTERN (Pattern): Regular expression pattern to extract JSON metadata.
+    """
     
-    # Улучшенный паттерн для поиска полных метаданных JSON
     METADATA_PATTERN = re.compile(
         r'META:\s*(\{[^}]*\}\s*)', 
         re.MULTILINE | re.DOTALL
@@ -21,8 +24,16 @@ class MetadataParser:
     
     def __init__(self, dags_folder: Optional[str] = None):
         """
+        Initializes the object with the given or default dags folder path.
+
+        Attributes:
+            dags_folder (str | None): Path to the directory containing DAGs. Defaults to the 'dags_folder'
+            defined in Airflow configuration. If the configuration is unavailable or invalid, it creates
+            a 'dags' folder in the current working directory or assigns '/tmp/dags' as fallback.
+
         Args:
-            dags_folder: Путь к папке с DAG'ами. Если None, берется из Airflow конфига
+            dags_folder (Optional[str]): Custom path to the DAGs folder. If not provided, the module tries
+            to read the configuration from Airflow or set default paths automatically.
         """
         if dags_folder is None:
             try:
@@ -42,13 +53,19 @@ class MetadataParser:
     
     def parse_dag_file(self, file_path: str) -> Optional[Dict[str, Any]]:
         """
-        Извлекает метаданные из DAG файла
-        
+        Parses a DAG file and extracts metadata in JSON format.
+
+        This method reads the content of the specified file, extracts a JSON-formatted metadata section,
+        and parses it into a dictionary. Additional information about the file is appended to the metadata,
+        such as file path, name, size, and modification time. If the metadata cannot be extracted or an
+        error occurs, None is returned.
+
         Args:
-            file_path: Путь к файлу DAG'а
-            
+            file_path (str): Path to the DAG file to be parsed.
+
         Returns:
-            Словарь с метаданными или None, если метаданные не найдены
+            Optional[Dict[str, Any]]: A dictionary containing metadata if extraction and parsing succeed,
+            otherwise None.
         """
         try:
             with open(file_path, 'r', encoding='utf-8') as f:
@@ -81,13 +98,16 @@ class MetadataParser:
     
     def _extract_metadata_json(self, content: str) -> Optional[str]:
         """
-        Извлекает JSON метаданных из содержимого файла
-        
+        Extracts JSON metadata from content if it starts with 'META:' and is a valid JSON object.
+
+        Searches for a JSON object starting with 'META:' within the provided content. Ensures that the JSON is well-formed
+        and enclosed by matching braces.
+
         Args:
-            content: Содержимое файла
-            
+            content (str): The content string to search for metadata.
+
         Returns:
-            JSON строка с метаданными или None
+            Optional[str]: Extracted JSON string if found, otherwise None.
         """
         # Ищем строку META: в первой части файла
         meta_pos = content.find('META:')
@@ -124,10 +144,10 @@ class MetadataParser:
     
     def scan_generated_dags(self) -> List[Dict[str, Any]]:
         """
-        Сканирует все сгенерированные DAG'и в папке
-        
+        Scans the specified DAGs folder for Python files and extracts metadata using the provided parser.
+
         Returns:
-            Список словарей с метаданными найденных DAG'ов
+            List[Dict[str, Any]]: A list of dictionaries containing the metadata for each valid DAG discovered.
         """
         generated_dags = []
         
@@ -152,13 +172,16 @@ class MetadataParser:
     
     def find_dag_by_id(self, dag_id: str) -> Optional[Dict[str, Any]]:
         """
-        Ищет DAG по его ID
-        
+        Find the DAG by its unique ID.
+
+        This method searches for a directed acyclic graph (DAG) within the generated DAGs
+        by matching the specified DAG ID.
+
         Args:
-            dag_id: Идентификатор DAG'а
-            
+            dag_id: Unique identifier of the DAG.
+
         Returns:
-            Метаданные DAG'а или None, если не найден
+            The DAG information as a dictionary if found. Returns None if not found.
         """
         for dag_info in self.scan_generated_dags():
             if dag_info.get('cfg', {}).get('dag_id') == dag_id:
@@ -167,13 +190,19 @@ class MetadataParser:
     
     def find_outdated_dags(self, current_template_versions: Dict[str, str]) -> List[Dict[str, Any]]:
         """
-        Находит DAG'и с устаревшими версиями шаблонов
-        
+        Identifies outdated DAGs based on current template versions.
+
+        Scans generated DAGs and compares their template versions with provided current template
+        versions. If discrepancies are found, marks the DAGs as outdated and provides the current
+        template version.
+
         Args:
-            current_template_versions: Словарь {generator_name: current_version}
-            
+            current_template_versions (Dict[str, str]): A dictionary mapping generator names to their
+                current template versions.
+
         Returns:
-            Список DAG'ов, требующих обновления
+            List[Dict[str, Any]]: A list of dictionaries containing information about outdated DAGs,
+                including their current template versions and whether they need an update.
         """
         outdated = []
         
@@ -191,10 +220,16 @@ class MetadataParser:
     
     def get_dag_statistics(self) -> Dict[str, Any]:
         """
-        Получает статистику по сгенерированным DAG'ам
-        
+        Collects and compiles statistical data about dynamically generated DAGs.
+
         Returns:
-            Словарь со статистикой
+            Dict[str, Any]: A dictionary containing the statistics of generated DAGs, including:
+                - Total number of generated DAGs.
+                - Information grouped by generators with counts and versions.
+                - Recent activity list containing the top 10 recently modified DAGs.
+
+        Raises:
+            KeyError: If any expected key is missing from the DAGs during processing.
         """
         dags = self.scan_generated_dags()
         
@@ -236,15 +271,20 @@ class MetadataParser:
 
 def create_metadata_string(generator_name: str, template_version: str, config: Dict[str, Any]) -> str:
     """
-    Создает строку метаданных для встраивания в докстринг
-    
+    Generates a metadata string in a specific format.
+
+    This function generates a metadata string which includes the generator name,
+    template version, and configuration details. The current timestamp is also included
+    in the metadata. The metadata is returned as a structured JSON string prefixed
+    with "META:".
+
     Args:
-        generator_name: Имя генератора
-        template_version: Версия шаблона
-        config: Конфигурация DAG'а
-        
+        generator_name (str): The name of the generator.
+        template_version (str): The version of the template being used.
+        config (Dict[str, Any]): Configuration values as a dictionary.
+
     Returns:
-        Строка с метаданными в формате META:{...}
+        str: A JSON-formatted string prefixed with "META:", containing the metadata.
     """
     # Создаем полные метаданные с ВСЕМИ параметрами формы
     metadata = {
@@ -260,13 +300,18 @@ def create_metadata_string(generator_name: str, template_version: str, config: D
 
 def _preserve_all_config(config: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Сохраняет ВСЕ параметры формы в метаданных без исключений
-    
+    Preserves configuration by excluding web-form related fields.
+
+    This function filters out certain predefined fields from a configuration
+    dictionary typically related to web forms. The remaining fields, including
+    empty strings, False, or 0, are preserved as is.
+
     Args:
-        config: Полная конфигурация из формы
-        
+        config (Dict[str, Any]): Configuration dictionary to process.
+
     Returns:
-        Полная конфигурация со всеми параметрами
+        Dict[str, Any]: Filtered configuration dictionary with web-form fields
+        excluded.
     """
     # Исключаем только служебные поля, связанные с веб-формой
     exclude_fields = {

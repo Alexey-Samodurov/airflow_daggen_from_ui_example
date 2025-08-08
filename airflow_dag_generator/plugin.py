@@ -1,14 +1,23 @@
-"""
-Определение плагина для Apache Airflow
-"""
 from airflow.plugins_manager import AirflowPlugin
-
-# Относительный импорт
 from .views import dag_generator_bp
 
 
 class DagGeneratorPlugin(AirflowPlugin):
-    """Плагин для генерации DAG'ов через веб-интерфейс Airflow"""
+    """
+    Represents a custom Airflow plugin for generating DAGs.
+
+    The DagGeneratorPlugin enables integration of a custom DAG generator into the Airflow web
+    UI under a specific category and menu. It provides additional objects for use in the Airflow
+    application such as blueprints and menu items, while also managing security and permissions.
+    The plugin includes version retrieval for its package.
+
+    Attributes:
+        name (str): The name of the plugin.
+        flask_blueprints (list): A list of Flask blueprints to register.
+        appbuilder_menu_items (list): Definitions of custom menu items for the Airflow navigation bar.
+        appbuilder_views (list): A list of views to add to the AppBuilder.
+        security_manager_view_menus (list): View menus with permissions for security management.
+    """
 
     name = "dag_generator"
     

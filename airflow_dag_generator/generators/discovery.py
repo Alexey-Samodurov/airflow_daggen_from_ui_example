@@ -1,6 +1,3 @@
-"""
-Система обнаружения генераторов с ручной перезагрузкой
-"""
 import importlib.util
 import inspect
 import logging
@@ -19,7 +16,12 @@ logger = logging.getLogger(__name__)
 
 
 class GeneratorDiscovery:
-    """Менеджер обнаружения генераторов с ручной перезагрузкой"""
+    """
+    Manages discovery, loading, and registration of generator classes from specified locations.
+
+    The class provides methods to scan directories for generator files, load and cache them,
+    and register found generators in a registry for further use.
+    """
 
     def __init__(self):
         self.discovery_paths = self._get_discovery_paths()
