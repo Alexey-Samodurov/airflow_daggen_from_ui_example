@@ -13,16 +13,16 @@ class CustomGenerator(BaseGenerator):
     def get_description(self) -> str:
         return "Простой пример кастомного генератора дагов"
 
-    def get_required_fields(self) -> List[str]:
-        return ['dag_id', 'schedule_interval', 'owner']
-
-    def get_optional_fields(self) -> Dict[str, Any]:
-        return {
-            'catchup': False,
-            'max_active_runs': 1,
-            'retries': 1,
-            'retry_delay_minutes': 5,
-        }
+    # def get_required_fields(self) -> List[str]:
+    #     return ['dag_id', 'schedule_interval', 'owner']
+    #
+    # def get_optional_fields(self) -> Dict[str, Any]:
+    #     return {
+    #         'catchup': False,
+    #         'max_active_runs': 1,
+    #         'retries': 1,
+    #         'retry_delay_minutes': 5,
+    #     }
 
     def get_form_fields(self) -> List[Dict[str, Any]]:
         return [

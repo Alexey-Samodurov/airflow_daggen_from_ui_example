@@ -90,29 +90,11 @@ class DynamicFormBuilder {
 
     _groupFields(fields) {
         const groups = {
-            'Основные параметры': [],
-            'Дополнительные настройки': [],
-            'Расширенные параметры': []
+            'Параметры': []
         };
 
-        const requiredFields = ['dag_id', 'schedule_interval', 'owner', 'description'];
-        const advancedFields = ['catchup', 'max_active_runs', 'depends_on_past', 'retries'];
-
         fields.forEach(field => {
-            if (requiredFields.includes(field.name) || field.required) {
-                groups['Основные параметры'].push(field);
-            } else if (advancedFields.includes(field.name)) {
-                groups['Расширенные параметры'].push(field);
-            } else {
-                groups['Дополнительные настройки'].push(field);
-            }
-        });
-
-        // Удаляем пустые группы
-        Object.keys(groups).forEach(key => {
-            if (groups[key].length === 0) {
-                delete groups[key];
-            }
+            groups['Параметры'].push(field);
         });
 
         return groups;
@@ -147,12 +129,7 @@ class DynamicFormBuilder {
     }
 
     _getGroupIcon(groupName) {
-        const icons = {
-            'Основные параметры': 'cog',
-            'Дополнительные настройки': 'sliders-h',
-            'Расширенные параметры': 'tools'
-        };
-        return icons[groupName] || 'folder';
+        return 'cog';
     }
 
     _createField(fieldConfig) {

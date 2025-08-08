@@ -19,19 +19,19 @@ class HelloWorldGenerator(BaseGenerator):
     def get_description(self) -> str:
         return "Простой Hello World DAG с одной задачей Python operator"
     
-    def get_required_fields(self) -> List[str]:
-        return ['dag_id', 'schedule_interval', 'owner']
-    
-    def get_optional_fields(self) -> Dict[str, Any]:
-        return {
-            'description': 'Generated Hello World DAG',
-            'tags': 'generated, hello-world',
-            'catchup': False,
-            'max_active_runs': 1,
-            'retries': 1,
-            'retry_delay_minutes': 5,
-            'greeting_message': 'Hello World from DAG Generator!'
-        }
+    # def get_required_fields(self) -> List[str]:
+    #     return ['dag_id', 'schedule_interval', 'owner']
+    #
+    # def get_optional_fields(self) -> Dict[str, Any]:
+    #     return {
+    #         'description': 'Generated Hello World DAG',
+    #         'tags': 'generated, hello-world',
+    #         'catchup': False,
+    #         'max_active_runs': 1,
+    #         'retries': 1,
+    #         'retry_delay_minutes': 5,
+    #         'greeting_message': 'Hello World from DAG Generator!'
+    #     }
     
     def get_form_fields(self) -> List[Dict[str, Any]]:
         """Кастомизированные поля формы"""

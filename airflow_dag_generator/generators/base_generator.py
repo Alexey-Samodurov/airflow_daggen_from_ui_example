@@ -1,9 +1,4 @@
-"""
-Базовый класс для генераторов DAG
-"""
-import json
 import logging
-from datetime import datetime
 from abc import ABC, abstractmethod
 from typing import Dict, Any, List
 
@@ -11,7 +6,7 @@ logger = logging.getLogger(__name__)
 
 
 class BaseGenerator(ABC):
-    """Базовый абстрактный класс для всех генераторов DAG"""
+    """Упрощенный базовый абстрактный класс для всех генераторов DAG"""
 
     def __init__(self, generator_name: str):
         """
@@ -21,8 +16,6 @@ class BaseGenerator(ABC):
             generator_name: Уникальное имя генератора (например, 'hello_world')
         """
         self.generator_name = generator_name
-
-    # Основные абстрактные методы
 
     @abstractmethod
     def get_display_name(self) -> str:
@@ -35,13 +28,24 @@ class BaseGenerator(ABC):
         pass
 
     @abstractmethod
-    def get_required_fields(self) -> List[str]:
-        """Возвращает список обязательных полей для генерации"""
-        pass
+    def get_form_fields(self) -> List[Dict[str, Any]]:
+        """
+        Возвращает конфигурацию полей для веб-формы
 
-    @abstractmethod
-    def get_optional_fields(self) -> Dict[str, Any]:
-        """Возвращает словарь необязательных полей с значениями по умолчанию"""
+        Returns:
+            Список словарей с конфигурацией полей:
+            [
+                {
+                    'name': 'field_name',
+                    'type': 'text|select|textarea|checkbox|number|email',
+                    'label': 'Human readable label',
+                    'required': True|False,
+                    'default_value': 'default value',
+                    'placeholder': 'placeholder text',
+                    'options': [{'value': 'val', 'label': 'Label'}]  # для select
+                }
+            ]
+        """
         pass
 
     @abstractmethod
@@ -57,69 +61,11 @@ class BaseGenerator(ABC):
         """
         pass
 
-    # Методы с реализацией по умолчанию (могут быть переопределены)
-
-    def get_form_fields(self) -> List[Dict[str, Any]]:
-        """
-        Возвращает конфигурацию полей для веб-формы
-        Может быть переопределен для кастомизации UI
-        """
-        fields = []
-
-        # Обязательные поля
-        for field_name in self.get_required_fields():
-            field_config = self._get_default_field_config(field_name, required=True)
-            fields.append(field_config)
-
-        # Необязательные поля
-        for field_name, default_value in self.get_optional_fields().items():
-            field_config = self._get_default_field_config(field_name, required=False)
-            field_config['default'] = default_value
-            fields.append(field_config)
-
-        return fields
-
-    def _get_default_field_config(self, field_name: str, required: bool = True) -> Dict[str, Any]:
-        """Генерирует конфигурацию поля по умолчанию"""
-        field_name_lower = field_name.lower()
-
-        # Определяем тип поля на основе имени
-        if 'email' in field_name_lower:
-            field_type = 'email'
-            placeholder = 'user@example.com'
-        elif 'password' in field_name_lower:
-            field_type = 'password'
-            placeholder = ''
-        elif 'schedule' in field_name_lower:
-            field_type = 'select'
-            placeholder = ''
-        elif 'description' in field_name_lower:
-            field_type = 'textarea'
-            placeholder = 'Enter description...'
-        elif 'tags' in field_name_lower:
-            field_type = 'text'
-            placeholder = 'tag1, tag2, tag3'
-        elif field_name_lower in ['retries', 'max_active_runs', 'chunk_size']:
-            field_type = 'number'
-            placeholder = ''
-        elif field_name_lower in ['catchup', 'depends_on_past']:
-            field_type = 'checkbox'
-            placeholder = ''
-        else:
-            field_type = 'text'
-            placeholder = f'Enter {field_name.replace("_", " ").lower()}...'
-
-        return {
-            'name': field_name,
-            'type': field_type,
-            'label': field_name.replace('_', ' ').title(),
-            'required': required,
-            'placeholder': placeholder
-        }
+    # === МЕТОДЫ С БАЗОВОЙ РЕАЛИЗАЦИЕЙ ===
 
     def validate_config(self, config: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Валидирует конфигурацию для генерации DAG
+        Базовая валидация конфигурации
 
         Returns:
             Dict с ключами: valid (bool), errors (List[str]), warnings (List[str])
@@ -127,19 +73,22 @@ class BaseGenerator(ABC):
         errors = []
         warnings = []
 
-        # Проверяем обязательные поля
-        for field in self.get_required_fields():
-            value = config.get(field)
-            if not value or (isinstance(value, str) and not value.strip()):
-                errors.append(f"Field '{field}' is required")
+        # Получаем обязательные поля из конфигурации формы
+        required_fields = [field['name'] for field in self.get_form_fields() if field.get('required')]
 
-        # Базовые проверки
+        # Проверяем обязательные поля
+        for field_name in required_fields:
+            value = config.get(field_name)
+            if not value or (isinstance(value, str) and not value.strip()):
+                errors.append(f"Поле '{field_name}' обязательно для заполнения")
+
+        # Базовые проверки DAG ID (если есть)
         dag_id = config.get('dag_id', '').strip()
         if dag_id:
             if not dag_id.replace('_', '').replace('-', '').isalnum():
-                errors.append("DAG ID must contain only letters, numbers, underscores and hyphens")
+                errors.append("DAG ID должен содержать только буквы, цифры, подчеркивания и дефисы")
             if len(dag_id) > 200:
-                errors.append("DAG ID is too long (max 200 characters)")
+                errors.append("DAG ID слишком длинный (максимум 200 символов)")
 
         return {
             'valid': len(errors) == 0,
@@ -147,161 +96,99 @@ class BaseGenerator(ABC):
             'warnings': warnings
         }
 
-    def get_preview_config(self) -> Dict[str, Any]:
-        """Возвращает конфигурацию для предварительного просмотра"""
-        config = {}
-
-        # Заполняем обязательные поля примерами
-        required_examples = {
-            'dag_id': f'example_{self.generator_name}_dag',
-            'owner': 'airflow',
-            'schedule_interval': '@daily',
-            'description': f'Example {self.get_display_name()}',
-        }
-
-        for field in self.get_required_fields():
-            config[field] = required_examples.get(field, f'example_{field}')
-
-        # Добавляем значения по умолчанию
-        config.update(self.get_optional_fields())
-
-        return config
-
     def get_generator_info(self) -> Dict[str, Any]:
-        """Возвращает полную информацию о генераторе"""
+        """Возвращает информацию о генераторе для API"""
         return {
             'name': self.generator_name,
             'display_name': self.get_display_name(),
             'description': self.get_description(),
-            'required_fields': self.get_required_fields(),
-            'optional_fields': self.get_optional_fields(),
-            'form_fields': self.get_form_fields(),
-            'class_name': self.__class__.__name__,
-            'module_name': self.__class__.__module__
+            'fields': self.get_form_fields(),
+            'validation_rules': self._get_validation_rules()
         }
 
-    def get_template_version(self) -> str:
-        """Возвращает версию шаблона генератора"""
-        return getattr(self, 'template_version', '1.0.0')
+    def _get_validation_rules(self) -> Dict[str, Any]:
+        """Извлекает правила валидации из конфигурации полей"""
+        rules = {}
+        for field in self.get_form_fields():
+            field_rules = {}
 
-    def get_default_values(self) -> Dict[str, Any]:
-        """
-        Возвращает значения по умолчанию для формы
+            if field.get('required'):
+                field_rules['required'] = True
 
-        Returns:
-            Словарь с значениями по умолчанию
-        """
-        # Объединяем с существующими optional_fields
-        defaults = self.get_optional_fields().copy()
+            if field.get('pattern'):
+                field_rules['pattern'] = field['pattern']
 
-        # Добавляем базовые значения
-        defaults.update({
-            'owner': 'airflow',
-            'retries': 1,
-            'schedule_interval': '@daily'
-        })
+            if field.get('min'):
+                field_rules['min'] = field['min']
 
-        return defaults
+            if field.get('max'):
+                field_rules['max'] = field['max']
 
-    # === ГЛАВНЫЙ МЕТОД ДЛЯ ГЕНЕРАЦИИ С МЕТАДАННЫМИ ===
+            if field_rules:
+                rules[field['name']] = field_rules
+
+        return rules
+
     def generate_with_metadata(self, form_data: Dict[str, Any]) -> str:
         """
-        Генерирует DAG с метаданными
+        Generates code with metadata embedded in the first docstring.
+
+        This method generates the main code using provided form data, creates a metadata
+        string using generator details and form data, and embeds the metadata string into
+        the first docstring of the generated code.
 
         Args:
-            form_data: Данные формы
+            form_data (Dict[str, Any]): Configuration data for code generation.
 
         Returns:
-            Код DAG'а с встроенными метаданными
+            str: Generated code with metadata embedded in the first docstring.
         """
-        # Валидируем конфигурацию
-        validation_result = self.validate_config(form_data)
-        if not validation_result['valid']:
-            raise ValueError(f"Invalid configuration: {validation_result['errors']}")
-
-        # Импортируем функцию создания метаданных из utils
-        from ..utils.metadata_parser import create_metadata_string
-
-        # Создаем строку метаданных со ВСЕМИ параметрами
+        # Генерируем основной код
+        dag_code = self.generate(form_data)
+        
+        # Создаем метаданные
+        from airflow_dag_generator.utils.metadata_parser import create_metadata_string
         metadata_string = create_metadata_string(
             generator_name=self.generator_name,
-            template_version=self.get_template_version(),
-            config=form_data  # Передаем ПОЛНУЮ конфигурацию
+            template_version=getattr(self, 'template_version', '1.0.0'),
+            config=form_data
         )
-
-        # Генерируем базовый код
-        dag_code = self.generate(form_data)
-
-        # Встраиваем метаданные в докстринг
+        
+        # Встраиваем метаданные в первый docstring
         return self._embed_metadata_in_docstring(dag_code, metadata_string)
 
     def _embed_metadata_in_docstring(self, dag_code: str, metadata_string: str) -> str:
         """
-        Встраивает метаданные в докстринг DAG'а
+        Appends metadata string into the first docstring found in the provided DAG code.
+
+        Attempts to inject a metadata string into an existing docstring within the DAG code. If no
+        docstring is found, it prepends a new one containing the metadata string.
 
         Args:
-            dag_code: Исходный код DAG'а
-            metadata_string: Строка с метаданными
+            dag_code (str): The source code of the DAG as a string.
+            metadata_string (str): Metadata to embed into the docstring.
 
         Returns:
-            Код DAG'а с встроенными метаданными
+            str: The updated DAG code containing the metadata within the docstring or prepending a
+            new one.
         """
-        import re
-
-        # Ищем первый многострочный докстринг (обычно в начале файла)
-        docstring_pattern = r'("""[\s\S]*?""")'
-        match = re.search(docstring_pattern, dag_code)
-
-        if match:
-            original_docstring = match.group(1)
-
-            # Создаем новый докстринг с метаданными
-            new_docstring = original_docstring[:-3] + f"\n{metadata_string}\n" + '"""'
-
-            # Заменяем оригинальный докстринг
-            updated_code = dag_code.replace(original_docstring, new_docstring, 1)
-            return updated_code
-        else:
-            # Если докстринг не найден, добавляем его в начало
-            metadata_docstring = f'"""\nGenerated DAG\n\n{metadata_string}\n"""\n\n'
-            return metadata_docstring + dag_code
-
-    # === ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ ===
-    def update_existing_dag(self, file_path: str, new_form_data: Dict[str, Any]) -> str:
-        """
-        Обновляет существующий DAG новыми данными
-
-        Args:
-            file_path: Путь к существующему файлу DAG'а
-            new_form_data: Новые данные формы
-
-        Returns:
-            Обновленный код DAG'а
-        """
-        # Просто перегенерируем DAG с новыми данными и метаданными
-        return self.generate_with_metadata(new_form_data)
-
-    def validate_form_data(self, form_data: Dict[str, Any]) -> List[str]:
-        """
-        Валидирует данные формы (расширенная версия validate_config)
-
-        Args:
-            form_data: Данные для валидации
-
-        Returns:
-            Список ошибок валидации (пустой список если ошибок нет)
-        """
-        # Используем существующий метод валидации
-        validation_result = self.validate_config(form_data)
-        errors = validation_result.get('errors', [])
-
-        # Дополнительная валидация DAG ID
-        dag_id = form_data.get('dag_id')
-        if dag_id:
-            if not dag_id.replace('_', '').replace('-', '').isalnum():
-                errors.append('DAG ID должен содержать только буквы, цифры, подчеркивания и дефисы')
-
-        return errors
+        if '"""' not in dag_code:
+            # Если нет docstring, добавляем в начало файла
+            return f'"""\n{metadata_string}\n"""\n\n{dag_code}'
+        
+        # Ищем конец первого docstring
+        first_start = dag_code.find('"""')
+        if first_start == -1:
+            return dag_code
+            
+        first_end = dag_code.find('"""', first_start + 3)
+        if first_end == -1:
+            return dag_code
+        
+        # Вставляем метаданные перед закрывающими кавычками
+        return (dag_code[:first_end] + 
+                f"\n\n{metadata_string}\n" + 
+                dag_code[first_end:])
 
     def __str__(self) -> str:
         return f"{self.__class__.__name__}(name='{self.generator_name}')"
